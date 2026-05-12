@@ -107,15 +107,7 @@ select:focus,input:focus{border-color:#A01020}
           </div>
           <div class="field">
             <label>Marca</label>
-            <select id="marca" onchange="// Init prezzi
-function initPrezzi(id,def){
-  const sel=document.getElementById(id);
-  for(let p=0;p<=60000;p+=50){const o=document.createElement('option');o.value=p;o.textContent=p.toLocaleString('it-IT');if(p===def)o.selected=true;sel.appendChild(o);}
-}
-initPrezzi('prezzo-listino',4300);
-initPrezzi('prezzo-scontato',3900);
-
-aggiornaModelli();aggiorna()">
+            <select id="marca" onchange="aggiornaModelli();aggiorna()">
               <option>YAMAHA</option><option>KAWAI</option><option>SCHIMMEL</option>
               <option>PETROF</option><option>NIEDERMAYER</option><option>ATLAS</option>
               <option>APOLLO</option><option>TOYO</option><option>YUKIKO</option>
@@ -201,11 +193,11 @@ aggiornaModelli();aggiorna()">
           <div class="prezzi-row">
             <div class="field">
               <label>Prezzo listino usato (€)</label>
-              <div class="euro-wrap"><span>€</span><select id="prezzo-listino" onchange="aggiorna()"></select></div>
+              <div class="euro-wrap"><span>€</span><input type="number" id="prezzo-listino" value="4300" min="0" max="60000" step="50" oninput="aggiorna()" placeholder="es. 4300" style="padding-left:22px"></div>
             </div>
             <div class="field">
               <label>Prezzo scontato (€)</label>
-              <div class="euro-wrap"><span>€</span><select id="prezzo-scontato" onchange="aggiorna()"></select></div>
+              <div class="euro-wrap"><span>€</span><input type="number" id="prezzo-scontato" value="3900" min="0" max="60000" step="50" oninput="aggiorna()" placeholder="es. 3900" style="padding-left:22px"></div>
             </div>
           </div>
 
