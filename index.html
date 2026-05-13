@@ -78,6 +78,18 @@ select:focus,input:focus{border-color:#A01020}
 
 .usa-annuncio-btn{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 14px;background:#fff;border:0.5px solid #A01020;border-radius:8px;font-size:13px;color:#A01020;font-weight:500;cursor:pointer;width:100%;justify-content:center}
 .usa-annuncio-btn:hover{background:#fdeced}
+.btn-tipo-prev{background:#fff;border:0.5px solid #e0e0e0;border-radius:10px;padding:16px 8px;font-size:13px;font-weight:500;cursor:pointer;color:#1a1a1a;transition:all 0.15s;text-align:center}
+.btn-tipo-prev:hover{border-color:#A01020;color:#A01020;background:#fdeced}
+.btn-tipo-prev.active{background:rgba(160,16,32,0.9);color:#fff;border-color:#A01020}
+.prev-section{margin-bottom:14px}
+.prev-label{font-size:11px;color:#888;font-weight:500;margin-bottom:4px;display:block}
+.prev-input{width:100%;padding:8px 10px;border:0.5px solid #e0e0e0;border-radius:8px;font-size:13px;outline:none;font-family:inherit}
+.prev-input:focus{border-color:#A01020}
+.prev-textarea{width:100%;padding:8px 10px;border:0.5px solid #e0e0e0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;resize:vertical;min-height:70px}
+.prev-check-row{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
+.prev-check-row input{accent-color:#A01020;width:15px;height:15px}
+.piano-block{background:#f9f9f9;border:0.5px solid #e8e8e8;border-radius:10px;padding:12px;margin-bottom:10px}
+.piano-block-title{font-size:12px;font-weight:600;color:#A01020;margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -90,6 +102,7 @@ select:focus,input:focus{border-color:#A01020}
   <div class="tab-nav">
     <button class="active" onclick="showTab('annuncio')">✏️ Annuncio</button>
     <button onclick="showTab('matricole')">🔍 Matricole</button>
+    <button onclick="showTab('preventivi')">📄 Preventivi</button>
   </div>
 
   <!-- TAB ANNUNCIO -->
@@ -107,7 +120,325 @@ select:focus,input:focus{border-color:#A01020}
           </div>
           <div class="field">
             <label>Marca</label>
-            <select id="marca" onchange="aggiornaModelli();aggiorna()">
+            <select id="marca" onchange="// =============================================
+// PREVENTIVI
+// =============================================
+const APPS_SCRIPT_PREVENTIVI = 'https://script.google.com/macros/s/AKfycbx-W946KwezuWxFOYDFjyPpg6ixbZuqg2dDyLoQn8uR8YLQTYUGqXxZuEwGGV8aRPRHLA/exec';
+
+let tipoPreventivo = null;
+
+function selezionaTipoPreventivo(tipo) {
+  tipoPreventivo = tipo;
+  document.querySelectorAll('.btn-tipo-prev').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  const form = document.getElementById('prev-form');
+  form.style.display = 'block';
+  if(tipo === 'concerto') form.innerHTML = formConcerto();
+  else if(tipo === 'vendita') form.innerHTML = formVendita();
+  else if(tipo === 'riparazione') form.innerHTML = formRiparazione();
+  else if(tipo === 'noleggio_lungo') form.innerHTML = formNoleggioLungo();
+}
+
+function vPrev(id) { return (document.getElementById(id)||{}).value || ''; }
+function cPrev(id) { return document.getElementById(id) && document.getElementById(id).checked; }
+
+// Formule destinatario
+function campoFormula(prefix) {
+  return `<div class="prev-section">
+    <label class="prev-label">Formula</label>
+    <select id="${prefix}formula" class="prev-input">
+      <option>Preg.mo</option><option>Preg.ma</option><option>Spett.le</option>
+      <option>Egregio</option><option>Gentile</option>
+    </select>
+  </div>
+  <div class="prev-section">
+    <label class="prev-label">Destinatario</label>
+    <input type="text" id="${prefix}destinatario" class="prev-input" placeholder="Nome cognome / Ente">
+  </div>`;
+}
+
+function campoData(prefix) {
+  const oggi = new Date().toISOString().split('T')[0];
+  return `<div class="prev-section">
+    <label class="prev-label">Data preventivo</label>
+    <input type="date" id="${prefix}data" class="prev-input" value="${oggi}">
+  </div>
+  <div class="prev-section">
+    <label class="prev-label">Luogo</label>
+    <input type="text" id="${prefix}luogo" class="prev-input" value="Rovigo">
+  </div>
+  <div class="prev-section">
+    <label class="prev-label">Nome file (senza estensione)</label>
+    <input type="text" id="${prefix}nomefile" class="prev-input" placeholder="es. 2026-05-13_Preventivo_Rossi">
+  </div>`;
+}
+
+function btnGenera(fn) {
+  return `<button onclick="${fn}()" class="btn-primary" id="btn-genera-prev" style="margin-top:6px">Genera e salva su Drive</button>
+  <div id="prev-status" style="margin-top:10px;font-size:12px;color:#888;text-align:center"></div>`;
+}
+
+// ---- FORM CONCERTO ----
+function formConcerto() {
+  return `<div class="card">
+    <h2>Noleggio per Concerto</h2>
+    ${campoFormula('c_')}
+    <div class="prev-section">
+      <label class="prev-label">Oggetto</label>
+      <input type="text" id="c_oggetto" class="prev-input" value="Preventivo di Noleggio Pianoforte per Concerto">
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">Descrizione pianoforte</label>
+      <input type="text" id="c_piano" class="prev-input" placeholder="es. un Pianoforte Yamaha C3 (186 cm)">
+    </div>
+    <div class="piano-block">
+      <div class="piano-block-title">Evento 1</div>
+      <input type="text" id="c_ev1" class="prev-input" placeholder="_ 02.07 Rovigo – Piazza V. Emanuele ore 21.00 ... € 350+IVA" style="margin-bottom:0">
+    </div>
+    <div class="piano-block">
+      <div class="piano-block-title">Evento 2</div>
+      <input type="text" id="c_ev2" class="prev-input" placeholder="_ 09.07 Porto Viro ... € 390+IVA" style="margin-bottom:0">
+    </div>
+    <div class="piano-block">
+      <div class="piano-block-title">Titolo sezione aggiuntiva</div>
+      <input type="text" id="c_titolo_agg" class="prev-input" placeholder="es. Eventuali date aggiuntive" style="margin-bottom:6px">
+      <input type="text" id="c_ev3" class="prev-input" placeholder="Evento 3" style="margin-bottom:6px">
+      <input type="text" id="c_ev4" class="prev-input" placeholder="Evento 4" style="margin-bottom:0">
+    </div>
+    ${campoData('c_')}
+    ${btnGenera('generaConcerto')}
+  </div>`;
+}
+
+// ---- FORM VENDITA ----
+function formVendita() {
+  let blocchi = '';
+  for(let i=1;i<=4;i++) {
+    blocchi += `<div class="piano-block">
+      <div class="piano-block-title">Pianoforte ${i}</div>
+      <input type="text" id="v_marca${i}" class="prev-input" placeholder="Marca" style="margin-bottom:6px">
+      <input type="text" id="v_modello${i}" class="prev-input" placeholder="Modello" style="margin-bottom:6px">
+      <input type="text" id="v_anno${i}" class="prev-input" placeholder="Anno" style="margin-bottom:6px">
+      <input type="text" id="v_matricola${i}" class="prev-input" placeholder="Matricola (opz.)" style="margin-bottom:6px">
+      <textarea id="v_desc${i}" class="prev-textarea" placeholder="Descrizione"></textarea>
+      <div class="prev-check-row"><input type="checkbox" id="v_cb_listino${i}"><label>Prezzo listino usato €</label><input type="number" id="v_listino${i}" class="prev-input" style="width:100px"></div>
+      <div class="prev-check-row"><input type="checkbox" id="v_cb_scontato${i}"><label>Prezzo scontato €</label><input type="number" id="v_scontato${i}" class="prev-input" style="width:100px"></div>
+      <div class="prev-check-row"><input type="checkbox" id="v_cb_riservato${i}"><label>Sconto riservato €</label><input type="number" id="v_riservato${i}" class="prev-input" style="width:100px"></div>
+      <div class="prev-check-row"><input type="checkbox" id="v_cb_offerta${i}"><label>Offerta riservata €</label><input type="number" id="v_offerta${i}" class="prev-input" style="width:100px"></div>
+    </div>`;
+  }
+  return `<div class="card">
+    <h2>Vendita Pianoforte</h2>
+    ${campoFormula('v_')}
+    <div class="prev-section">
+      <label class="prev-label">Oggetto</label>
+      <input type="text" id="v_oggetto" class="prev-input" placeholder="es. PREVENTIVO ACQUISTO PIANOFORTE">
+    </div>
+    ${blocchi}
+    ${campoData('v_')}
+    ${btnGenera('generaVendita')}
+  </div>`;
+}
+
+// ---- FORM RIPARAZIONE ----
+function formRiparazione() {
+  return `<div class="card">
+    <h2>Riparazione / Manutenzione</h2>
+    ${campoFormula('r_')}
+    <div class="prev-section">
+      <label class="prev-label">Oggetto</label>
+      <textarea id="r_oggetto" class="prev-textarea" placeholder="es. REVISIONE e MESSA A PUNTO PIANOFORTI..."></textarea>
+    </div>
+    <div class="piano-block">
+      <div class="piano-block-title">Interventi</div>
+      <input type="text" id="r_int1" class="prev-input" placeholder="Intervento 1" style="margin-bottom:6px">
+      <input type="text" id="r_int2" class="prev-input" placeholder="Intervento 2" style="margin-bottom:6px">
+      <input type="text" id="r_int3" class="prev-input" placeholder="Intervento 3" style="margin-bottom:6px">
+      <input type="text" id="r_int4" class="prev-input" placeholder="Intervento 4" style="margin-bottom:6px">
+      <input type="text" id="r_int5" class="prev-input" placeholder="Intervento 5" style="margin-bottom:6px">
+      <input type="text" id="r_int6" class="prev-input" placeholder="Intervento 6" style="margin-bottom:0">
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">Frase extra (opz.)</label>
+      <input type="text" id="r_extra" class="prev-input" placeholder="es. Seguirà documentazione fotografica">
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">Costo complessivo intervento</label>
+      <input type="text" id="r_costo" class="prev-input" placeholder="es. € 1750 IVA ESCLUSA">
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">Escluso dal preventivo (opz.)</label>
+      <input type="text" id="r_escluso" class="prev-input" placeholder="es. costo dei pedali...">
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">Incluso nel preventivo (opz.)</label>
+      <input type="text" id="r_incluso" class="prev-input" placeholder="">
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">Consegna entro</label>
+      <input type="text" id="r_consegna" class="prev-input" placeholder="es. 31/12/2025">
+    </div>
+    ${campoData('r_')}
+    ${btnGenera('generaRiparazione')}
+  </div>`;
+}
+
+// ---- FORM NOLEGGIO LUNGO TERMINE ----
+function formNoleggioLungo() {
+  return `<div class="card">
+    <h2>Noleggio Lungo Termine</h2>
+    ${campoFormula('nl_')}
+    <div class="prev-section">
+      <label class="prev-label">Oggetto (strumento)</label>
+      <input type="text" id="nl_oggetto" class="prev-input" placeholder="es. Noleggio Annuale Pianoforte Schimmel 208">
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">Costo annuale €</label>
+      <input type="number" id="nl_annuale" class="prev-input" placeholder="es. 3660">
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">IVA</label>
+      <select id="nl_iva" class="prev-input">
+        <option value="IVA COMPRESA">IVA compresa</option>
+        <option value="IVA ESCLUSA">IVA esclusa</option>
+      </select>
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">Costo mensile €</label>
+      <input type="number" id="nl_mensile" class="prev-input" placeholder="es. 305">
+    </div>
+    <div class="prev-section">
+      <label class="prev-label">Incluso nel prezzo</label>
+      <input type="text" id="nl_incluso" class="prev-input" value="Incluso nel prezzo uno sgabello professionale regolabile in altezza e la coperta del pianoforte.">
+    </div>
+    ${campoData('nl_')}
+    ${btnGenera('generaNoleggioLungo')}
+  </div>`;
+}
+
+// ---- FUNZIONI GENERA ----
+function fmtData(dateStr) {
+  if(!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('it-IT');
+}
+
+function prezzoRiga(label, valore) {
+  return valore ? `${label} € ${parseInt(valore).toLocaleString('it-IT')}
+` : '';
+}
+
+async function inviaAdAppsScript(tipo, nomeFile, segnaposti) {
+  const status = document.getElementById('prev-status');
+  const btn = document.getElementById('btn-genera-prev');
+  btn.disabled = true; btn.textContent = 'Generazione...';
+  status.innerHTML = '<span class="spinner"></span>Invio ad Apps Script...';
+  try {
+    const res = await fetch(APPS_SCRIPT_PREVENTIVI, {
+      method: 'POST',
+      body: JSON.stringify({ tipo, nome_file: nomeFile, segnaposti }),
+      headers: { 'Content-Type': 'text/plain' },
+      redirect: 'follow'
+    });
+    const data = await res.json();
+    if(data.success) {
+      status.innerHTML = `<span style="color:#A01020;font-weight:500">✓ Preventivo salvato!</span><br>
+        <a href="${data.wordUrl}" target="_blank" style="font-size:12px;color:#A01020">Apri Word →</a> &nbsp;
+        <a href="${data.pdfUrl}" target="_blank" style="font-size:12px;color:#A01020">Apri PDF →</a>`;
+      btn.textContent = '✓ Salvato';
+    } else {
+      throw new Error(data.error || 'Errore sconosciuto');
+    }
+  } catch(err) {
+    status.innerHTML = `<span style="color:#A32D2D">Errore: ${err.message}</span>`;
+    btn.disabled = false; btn.textContent = 'Genera e salva su Drive';
+  }
+}
+
+function generaConcerto() {
+  const nomeFile = vPrev('c_nomefile') || ('2026-' + new Date().toISOString().split('T')[0].slice(5).replace('-','') + '_Preventivo_Concerto');
+  const segnaposti = {
+    '##FORMULA## ##DESTINATARIO##': vPrev('c_formula') + ' ' + vPrev('c_destinatario'),
+    '##OGGETTO##': vPrev('c_oggetto'),
+    '##DESCRIZIONE_PIANO##': vPrev('c_piano'),
+    '##RIGA_EVENTO_1##': vPrev('c_ev1'),
+    '##RIGA_EVENTO_2##': vPrev('c_ev2'),
+    '##TITOLO_SEZIONE_AGGIUNTIVA##': vPrev('c_titolo_agg'),
+    '##RIGA_EVENTO_3##': vPrev('c_ev3'),
+    '##RIGA_EVENTO_4##': vPrev('c_ev4'),
+    '##DATA##': fmtData(vPrev('c_data')),
+    '##LUOGO##': vPrev('c_luogo'),
+  };
+  inviaAdAppsScript('concerto', nomeFile, segnaposti);
+}
+
+function generaVendita() {
+  const nomeFile = vPrev('v_nomefile') || ('2026-_Preventivo_Vendita');
+  const seg = {
+    '##FORMULA## ##DESTINATARIO##': vPrev('v_formula') + ' ' + vPrev('v_destinatario'),
+    '##OGGETTO##': vPrev('v_oggetto'),
+    '##DATA##': fmtData(vPrev('v_data')),
+    '##LUOGO##': vPrev('v_luogo'),
+  };
+  for(let i=1;i<=4;i++) {
+    const mat = vPrev('v_matricola'+i) ? ' — Matricola ' + vPrev('v_matricola'+i) : '';
+    seg[`##MARCA_${i}## ##MODELLO_${i}## — Anno ##ANNO_${i}## ##MATRICOLA_${i}##`] =
+      vPrev('v_marca'+i) + ' ' + vPrev('v_modello'+i) + (vPrev('v_anno'+i) ? ' — Anno ' + vPrev('v_anno'+i) : '') + mat;
+    seg[`##DESCRIZIONE_${i}##`] = vPrev('v_desc'+i);
+    seg[`##PREZZO_LISTINO_${i}##`] = cPrev('v_cb_listino'+i) ? 'Prezzo di listino dell'usato € ' + parseInt(vPrev('v_listino'+i)||0).toLocaleString('it-IT') + '
+' : '';
+    seg[`##PREZZO_SCONTATO_${i}##`] = cPrev('v_cb_scontato'+i) ? 'Prezzo scontato € ' + parseInt(vPrev('v_scontato'+i)||0).toLocaleString('it-IT') + '
+' : '';
+    seg[`##SCONTO_RISERVATO_${i}##`] = cPrev('v_cb_riservato'+i) ? 'Sconto riservato € ' + parseInt(vPrev('v_riservato'+i)||0).toLocaleString('it-IT') + '
+' : '';
+    seg[`##OFFERTA_RISERVATA_${i}##`] = cPrev('v_cb_offerta'+i) ? 'Offerta riservata € ' + parseInt(vPrev('v_offerta'+i)||0).toLocaleString('it-IT') + '
+' : '';
+  }
+  inviaAdAppsScript('vendita', nomeFile, seg);
+}
+
+function generaRiparazione() {
+  const nomeFile = vPrev('r_nomefile') || ('2026-_Preventivo_Riparazione');
+  const seg = {
+    '##FORMULA## ##DESTINATARIO##': vPrev('r_formula') + ' ' + vPrev('r_destinatario'),
+    '##OGGETTO_: ##REVISIONE': vPrev('r_oggetto'),
+    '##INTERVENTO_1##': vPrev('r_int1') ? '_ ' + vPrev('r_int1') : '',
+    '##INTERVENTO_2##': vPrev('r_int2') ? '_ ' + vPrev('r_int2') : '',
+    '##INTERVENTO_3##': vPrev('r_int3') ? '_ ' + vPrev('r_int3') : '',
+    '##INTERVENTO_4##': vPrev('r_int4') ? '_ ' + vPrev('r_int4') : '',
+    '##INTERVENTO_5##': vPrev('r_int5') ? '_ ' + vPrev('r_int5') : '',
+    '##INTERVENTO_6##': vPrev('r_int6') ? '_ ' + vPrev('r_int6') : '',
+    '##FRASE EXTRA##': vPrev('r_extra'),
+    '##COSTO_COMPLESSIVO_INTERVENTO##': vPrev('r_costo'),
+    "##E'_escluso_dal_preventivo##": vPrev('r_escluso') ? "E' escluso dal preventivo " + vPrev('r_escluso') : '',
+    "##E'_incluso_nel_preventivo##": vPrev('r_incluso'),
+    '##LUOGO##': vPrev('r_luogo'),
+    '##DATA##': fmtData(vPrev('r_data')),
+    '##Consegna strumenti entro il 31/12/2025.##': vPrev('r_consegna') ? 'Consegna strumenti entro il ' + vPrev('r_consegna') + '.' : '',
+  };
+  inviaAdAppsScript('riparazione', nomeFile, seg);
+}
+
+function generaNoleggioLungo() {
+  const nomeFile = vPrev('nl_nomefile') || ('2026-_Preventivo_Noleggio');
+  const annuale = parseInt(vPrev('nl_annuale')||0);
+  const mensile = parseInt(vPrev('nl_mensile')||0);
+  const seg = {
+    '##FORMULA## ##DESTINATARIO##': vPrev('nl_formula') + ' ' + vPrev('nl_destinatario'),
+    '##OGGETTO_:##': 'Oggetto: ' + vPrev('nl_oggetto'),
+    '##COSTO_ANNUALE_:##': 'Costo Annuale',
+    '€ 3660': '€ ' + annuale.toLocaleString('it-IT'),
+    '##IVA_compresa##': vPrev('nl_iva'),
+    '##COSTO_€/MESE##': '€ ' + mensile.toLocaleString('it-IT'),
+    '##INCLUSO NEL PREZZO##': '',
+    'Incluso nel prezzo uno sgabello professionale regolabile in altezza e la coperta del pianoforte.': vPrev('nl_incluso'),
+    '##LUOGO##': vPrev('nl_luogo'),
+    '##DATA##': fmtData(vPrev('nl_data')),
+  };
+  inviaAdAppsScript('noleggio_lungo', nomeFile, seg);
+}
+
+aggiornaModelli();aggiorna()">
               <option>YAMAHA</option><option>KAWAI</option><option>SCHIMMEL</option>
               <option>PETROF</option><option>NIEDERMAYER</option><option>ATLAS</option>
               <option>APOLLO</option><option>TOYO</option><option>YUKIKO</option>
@@ -270,6 +601,25 @@ select:focus,input:focus{border-color:#A01020}
       <div class="card">
         <div class="info-box" id="m-info"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- TAB PREVENTIVI -->
+  <div id="tab-preventivi" class="tab-content">
+    <div style="max-width:560px;margin:0 auto">
+
+      <!-- Selezione tipo preventivo -->
+      <div class="card" id="prev-selezione">
+        <h2>Tipo di preventivo</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">
+          <button onclick="selezionaTipoPreventivo('concerto')" class="btn-tipo-prev">🎹 Noleggio Concerto</button>
+          <button onclick="selezionaTipoPreventivo('vendita')" class="btn-tipo-prev">🏷️ Vendita</button>
+          <button onclick="selezionaTipoPreventivo('riparazione')" class="btn-tipo-prev">🔧 Riparazione</button>
+          <button onclick="selezionaTipoPreventivo('noleggio_lungo')" class="btn-tipo-prev">📋 Noleggio Lungo Termine</button>
+        </div>
+      </div>
+
+      <div id="prev-form" style="display:none"></div>
     </div>
   </div>
 
@@ -679,7 +1029,7 @@ function showTab(name){
   document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.tab-nav button').forEach(el=>el.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
-  const idx=name==='annuncio'?0:1;
+  const idx=name==='annuncio'?0:name==='matricole'?1:2;
   document.querySelectorAll('.tab-nav button')[idx].classList.add('active');
   if(name==='matricole') cercaMatricola();
 }
