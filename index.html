@@ -78,19 +78,6 @@ select:focus,input:focus{border-color:#A01020}
 
 .usa-annuncio-btn{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 14px;background:#fff;border:0.5px solid #A01020;border-radius:8px;font-size:13px;color:#A01020;font-weight:500;cursor:pointer;width:100%;justify-content:center}
 .usa-annuncio-btn:hover{background:#fdeced}
-
-.btn-tipo-prev{background:#fff;border:0.5px solid #e0e0e0;border-radius:10px;padding:16px 8px;font-size:13px;font-weight:500;cursor:pointer;color:#1a1a1a;transition:all 0.15s;text-align:center;width:100%}
-.btn-tipo-prev:hover{border-color:#A01020;color:#A01020;background:#fdeced}
-.btn-tipo-prev.active{background:rgba(160,16,32,0.9);color:#fff;border-color:#A01020}
-.prev-section{margin-bottom:12px}
-.prev-label{font-size:11px;color:#888;font-weight:500;margin-bottom:4px;display:block}
-.prev-input{width:100%;padding:8px 10px;border:0.5px solid #e0e0e0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;background:#fff;color:#1a1a1a}
-.prev-input:focus{border-color:#A01020}
-.prev-textarea{width:100%;padding:8px 10px;border:0.5px solid #e0e0e0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;resize:vertical;min-height:70px;background:#fff;color:#1a1a1a}
-.piano-block{background:#f9f9f9;border:0.5px solid #e8e8e8;border-radius:10px;padding:12px;margin-bottom:10px}
-.piano-block-title{font-size:12px;font-weight:600;color:#A01020;margin-bottom:10px}
-.prev-check-row{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
-.prev-check-row input[type=checkbox]{accent-color:#A01020;width:15px;height:15px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -103,7 +90,6 @@ select:focus,input:focus{border-color:#A01020}
   <div class="tab-nav">
     <button class="active" onclick="showTab('annuncio')">✏️ Annuncio</button>
     <button onclick="showTab('matricole')">🔍 Matricole</button>
-    <button onclick="showTab('preventivi')">📄 Preventivi</button>
   </div>
 
   <!-- TAB ANNUNCIO -->
@@ -693,30 +679,13 @@ function showTab(name){
   document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.tab-nav button').forEach(el=>el.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
-  const idx=name==='annuncio'?0:name==='matricole'?1:2;
+  const idx=name==='annuncio'?0:1;
   document.querySelectorAll('.tab-nav button')[idx].classList.add('active');
   if(name==='matricole') cercaMatricola();
 }
 
 aggiorna();
 cercaMatricola();
-</script>
-
-  <div id="tab-preventivi" class="tab-content">
-    <div style="max-width:560px;margin:0 auto">
-      <div class="card">
-        <h2>Tipo di preventivo</h2>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <button class="btn-tipo-prev" onclick="selezionaTipoPreventivo(this,'concerto')">🎹 Noleggio Concerto</button>
-          <button class="btn-tipo-prev" onclick="selezionaTipoPreventivo(this,'vendita')">🏷️ Vendita</button>
-          <button class="btn-tipo-prev" onclick="selezionaTipoPreventivo(this,'riparazione')">🔧 Riparazione</button>
-          <button class="btn-tipo-prev" onclick="selezionaTipoPreventivo(this,'noleggio_lungo')">📋 Noleggio Lungo Termine</button>
-        </div>
-      </div>
-      <div id="prev-form"></div>
-    </div>
-  </div>
-<script>
 const APPS_SCRIPT_PREVENTIVI='https://script.google.com/macros/s/AKfycbx-W946KwezuWxFOYDFjyPpg6ixbZuqg2dDyLoQn8uR8YLQTYUGqXxZuEwGGV8aRPRHLA/exec';
 let tipoPreventivo=null;
 function selezionaTipoPreventivo(btn,tipo){
@@ -734,7 +703,7 @@ function cP(id){return!!(document.getElementById(id)&&document.getElementById(id
 function campoFormula(p){return'<div class="prev-section"><label class="prev-label">Formula</label><select id="'+p+'formula" class="prev-input"><option>Preg.mo</option><option>Preg.ma</option><option>Spett.le</option><option>Egregio</option><option>Gentile</option></select></div><div class="prev-section"><label class="prev-label">Destinatario</label><input type="text" id="'+p+'destinatario" class="prev-input" placeholder="Nome cognome / Ente"></div>';}
 function campoData(p){const oggi=new Date().toISOString().split('T')[0];return'<div class="prev-section"><label class="prev-label">Data preventivo</label><input type="date" id="'+p+'data" class="prev-input" value="'+oggi+'"></div><div class="prev-section"><label class="prev-label">Luogo</label><input type="text" id="'+p+'luogo" class="prev-input" value="Rovigo"></div><div class="prev-section"><label class="prev-label">Nome file</label><input type="text" id="'+p+'nomefile" class="prev-input" placeholder="es. 2026-05-13_Preventivo_Rossi"></div>';}
 function btnGenera(fn){return'<button onclick="'+fn+'()" class="btn-primary" id="btn-genera-prev" style="margin-top:6px">Genera e salva su Drive</button><div id="prev-status" style="margin-top:10px;font-size:12px;color:#888;text-align:center"></div>';}
-function formConcerto(){return'<div class="card"><h2>Noleggio per Concerto</h2>'+campoFormula('c_')+'<div class="prev-section"><label class="prev-label">Oggetto</label><input type="text" id="c_oggetto" class="prev-input" value="Preventivo di Noleggio Pianoforte per Concerto"></div><div class="prev-section"><label class="prev-label">Descrizione pianoforte</label><input type="text" id="c_piano" class="prev-input" placeholder="es. un Pianoforte Yamaha C3 (186 cm)"></div><div class="piano-block"><div class="piano-block-title">Evento 1</div><input type="text" id="c_ev1" class="prev-input" placeholder="_ 02.07 Rovigo - Piazza V. Emanuele ore 21.00 ... 350+IVA"></div><div class="piano-block"><div class="piano-block-title">Evento 2</div><input type="text" id="c_ev2" class="prev-input" placeholder="_ 09.07 Porto Viro ... 390+IVA"></div><div class="piano-block"><div class="piano-block-title">Sezione aggiuntiva (opz.)</div><input type="text" id="c_titolo_agg" class="prev-input" placeholder="es. Eventuali date aggiuntive" style="margin-bottom:6px"><input type="text" id="c_ev3" class="prev-input" placeholder="Evento 3" style="margin-bottom:6px"><input type="text" id="c_ev4" class="prev-input" placeholder="Evento 4"></div>'+campoData('c_')+btnGenera('generaConcerto')+'</div>';}
+function formConcerto(){return'<div class="card"><h2>Noleggio per Concerto</h2>'+campoFormula('c_')+'<div class="prev-section"><label class="prev-label">Oggetto</label><input type="text" id="c_oggetto" class="prev-input" value="Preventivo di Noleggio Pianoforte per Concerto"></div><div class="prev-section"><label class="prev-label">Marca pianoforte</label><input type="text" id="c_marca" class="prev-input" placeholder="es. Yamaha"></div><div class="prev-section"><label class="prev-label">Modello pianoforte</label><input type="text" id="c_modello" class="prev-input" placeholder="es. C3"></div><div class="prev-section"><label class="prev-label">Tipo coda</label><select id="c_tipo_coda" class="prev-input"><option>Mezza</option><option>Gran</option><option>Quarto di</option><option>Tre quarti di</option></select></div><div class="prev-section"><label class="prev-label">Lunghezza (cm)</label><input type="number" id="c_lunghezza" class="prev-input" placeholder="es. 186"></div><div class="piano-block"><div class="piano-block-title">Evento 1</div><input type="text" id="c_ev1" class="prev-input" placeholder="_ 02.07 Rovigo - Piazza V. Emanuele ore 21.00 EUR 350+IVA"></div><div class="piano-block"><div class="piano-block-title">Evento 2</div><input type="text" id="c_ev2" class="prev-input" placeholder="_ 09.07 Porto Viro ... EUR 390+IVA"></div><div class="piano-block"><div class="piano-block-title">Sezione aggiuntiva (opz.)</div><input type="text" id="c_titolo_agg" class="prev-input" placeholder="es. Eventuali date aggiuntive" style="margin-bottom:6px"><input type="text" id="c_ev3" class="prev-input" placeholder="Evento 3" style="margin-bottom:6px"><input type="text" id="c_ev4" class="prev-input" placeholder="Evento 4"></div><div class="prev-section"><label class="prev-label">Prezzo totale (EUR)</label><input type="number" id="c_prezzo" class="prev-input" placeholder="es. 350"></div>'+campoData('c_')+btnGenera('generaConcerto')+'</div>';}
 function formVendita(){let b='';for(let i=1;i<=4;i++){b+='<div class="piano-block"><div class="piano-block-title">Pianoforte '+i+'</div><input type="text" id="v_marca'+i+'" class="prev-input" placeholder="Marca" style="margin-bottom:6px"><input type="text" id="v_modello'+i+'" class="prev-input" placeholder="Modello" style="margin-bottom:6px"><input type="text" id="v_anno'+i+'" class="prev-input" placeholder="Anno" style="margin-bottom:6px"><input type="text" id="v_matricola'+i+'" class="prev-input" placeholder="Matricola (opz.)" style="margin-bottom:6px"><textarea id="v_desc'+i+'" class="prev-textarea" placeholder="Descrizione"></textarea><div class="prev-check-row"><input type="checkbox" id="v_cb_listino'+i+'"><label>Prezzo listino usato</label><input type="number" id="v_listino'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div><div class="prev-check-row"><input type="checkbox" id="v_cb_scontato'+i+'"><label>Prezzo scontato</label><input type="number" id="v_scontato'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div><div class="prev-check-row"><input type="checkbox" id="v_cb_riservato'+i+'"><label>Sconto riservato</label><input type="number" id="v_riservato'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div><div class="prev-check-row"><input type="checkbox" id="v_cb_offerta'+i+'"><label>Offerta riservata</label><input type="number" id="v_offerta'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div></div>';}return'<div class="card"><h2>Vendita Pianoforte</h2>'+campoFormula('v_')+'<div class="prev-section"><label class="prev-label">Oggetto</label><input type="text" id="v_oggetto" class="prev-input" placeholder="es. PREVENTIVO ACQUISTO PIANOFORTE"></div>'+b+campoData('v_')+btnGenera('generaVendita')+'</div>';}
 function formRiparazione(){let ints='';for(let i=1;i<=6;i++)ints+='<input type="text" id="r_int'+i+'" class="prev-input" placeholder="Intervento '+i+'" style="margin-bottom:6px">';return'<div class="card"><h2>Riparazione / Manutenzione</h2>'+campoFormula('r_')+'<div class="prev-section"><label class="prev-label">Oggetto</label><textarea id="r_oggetto" class="prev-textarea" placeholder="es. REVISIONE e MESSA A PUNTO..."></textarea></div><div class="piano-block"><div class="piano-block-title">Interventi</div>'+ints+'</div><div class="prev-section"><label class="prev-label">Frase extra (opz.)</label><input type="text" id="r_extra" class="prev-input"></div><div class="prev-section"><label class="prev-label">Costo complessivo</label><input type="text" id="r_costo" class="prev-input" placeholder="es. 1750 IVA ESCLUSA"></div><div class="prev-section"><label class="prev-label">Escluso dal preventivo (opz.)</label><input type="text" id="r_escluso" class="prev-input"></div><div class="prev-section"><label class="prev-label">Incluso nel preventivo (opz.)</label><input type="text" id="r_incluso" class="prev-input"></div><div class="prev-section"><label class="prev-label">Consegna entro</label><input type="text" id="r_consegna" class="prev-input" placeholder="es. 31/12/2025"></div>'+campoData('r_')+btnGenera('generaRiparazione')+'</div>';}
 function formNoleggioLungo(){return'<div class="card"><h2>Noleggio Lungo Termine</h2>'+campoFormula('nl_')+'<div class="prev-section"><label class="prev-label">Oggetto / Strumento</label><input type="text" id="nl_oggetto" class="prev-input" placeholder="es. Noleggio Annuale Pianoforte Schimmel 208"></div><div class="prev-section"><label class="prev-label">Costo annuale (euro)</label><input type="number" id="nl_annuale" class="prev-input" placeholder="es. 3660"></div><div class="prev-section"><label class="prev-label">IVA</label><select id="nl_iva" class="prev-input"><option>IVA COMPRESA</option><option>IVA ESCLUSA</option></select></div><div class="prev-section"><label class="prev-label">Costo mensile (euro)</label><input type="number" id="nl_mensile" class="prev-input" placeholder="es. 305"></div><div class="prev-section"><label class="prev-label">Incluso nel prezzo</label><input type="text" id="nl_incluso" class="prev-input" value="Incluso nel prezzo uno sgabello professionale regolabile in altezza e la coperta del pianoforte."></div>'+campoData('nl_')+btnGenera('generaNoleggioLungo')+'</div>';}
@@ -758,7 +727,24 @@ async function inviaAppsScript(tipo,nomeFile,seg){
 }
 function generaConcerto(){
   const nf=vP('c_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Concerto';
-  inviaAppsScript('concerto',nf,{'##FORMULA## ##DESTINATARIO##':vP('c_formula')+' '+vP('c_destinatario'),'##OGGETTO##':vP('c_oggetto'),'##DESCRIZIONE_PIANO##':vP('c_piano'),'##RIGA_EVENTO_1##':vP('c_ev1'),'##RIGA_EVENTO_2##':vP('c_ev2'),'##TITOLO_SEZIONE_AGGIUNTIVA##':vP('c_titolo_agg'),'##RIGA_EVENTO_3##':vP('c_ev3'),'##RIGA_EVENTO_4##':vP('c_ev4'),'##DATA##':fmtData(vP('c_data')),'##LUOGO##':vP('c_luogo')});
+  inviaAppsScript('concerto',nf,{
+    '##FORMULA####DESTINATARIO##':vP('c_formula')+' '+vP('c_destinatario'),
+    '##FORMULA## ##DESTINATARIO##':vP('c_formula')+' '+vP('c_destinatario'),
+    '##OGGETTO##':vP('c_oggetto'),
+    '##MARCA##':vP('c_marca'),
+    '##MODELLO_PIANOFORTE##':vP('c_modello'),
+    '##TIPO_CODA##':vP('c_tipo_coda'),
+    '##LUNGHEZZA_PIANOFORTE##':vP('c_lunghezza'),
+    '##RIGA_EVENTO_1##':vP('c_ev1'),
+    '##RIGA_EVENTO_2##':vP('c_ev2'),
+    '##Titolo_Sezione_Aggiuntiva##':vP('c_titolo_agg'),
+    '##TITOLO_SEZIONE_AGGIUNTIVA##':vP('c_titolo_agg'),
+    '##RIGA_EVENTO_3##':vP('c_ev3'),
+    '##RIGA_EVENTO_4##':vP('c_ev4'),
+    '##PREZZO##':vP('c_prezzo'),
+    '##DATA##':fmtData(vP('c_data')),
+    '##LUOGO##':vP('c_luogo'),
+  });
 }
 function generaVendita(){
   const nf=vP('v_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Vendita';
