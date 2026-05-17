@@ -742,7 +742,11 @@ function formConcerto(){return'<div class="card"><h2>Noleggio per Concerto</h2>'
 function formVendita(){
   let b='';
   for(let i=1;i<=4;i++){
-    b+='<div class="piano-block"><div class="piano-block-title">Pianoforte '+i+'</div>'
+    const chk=i===1?' checked':'';
+    const disp=i===1?'block':'none';
+    b+='<div class="piano-block">'
+    +'<div class="prev-check-row" style="margin-bottom:0"><input type="checkbox" id="v_incluso'+i+'"'+chk+' onchange="toggleVPiano('+i+')"><label style="font-weight:600;color:#A01020">Includi Pianoforte '+i+'</label></div>'
+    +'<div id="v_body'+i+'" style="display:'+disp+';margin-top:10px">'
     +'<input type="text" id="v_marca'+i+'" class="prev-input" placeholder="Marca" style="margin-bottom:6px">'
     +'<input type="text" id="v_modello'+i+'" class="prev-input" placeholder="Modello" style="margin-bottom:6px">'
     +'<input type="text" id="v_anno'+i+'" class="prev-input" placeholder="Anno" style="margin-bottom:6px">'
@@ -752,24 +756,27 @@ function formVendita(){
     +'<div class="prev-check-row"><input type="checkbox" id="v_cb_scontato'+i+'"><label>Prezzo scontato</label><input type="number" id="v_scontato'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div>'
     +'<div class="prev-check-row"><input type="checkbox" id="v_cb_riservato'+i+'"><label>Sconto riservato</label><input type="number" id="v_riservato'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div>'
     +'<div class="prev-check-row"><input type="checkbox" id="v_cb_offerta'+i+'"><label>Offerta riservata</label><input type="number" id="v_offerta'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div>'
-    +'</div>';
+    +'</div></div>';
   }
   return '<div class="card"><h2>Vendita Pianoforte</h2>'+campoFormula('v_')
   +'<div class="prev-section"><label class="prev-label">Oggetto</label><input type="text" id="v_oggetto" class="prev-input" placeholder="es. PREVENTIVO ACQUISTO PIANOFORTE"></div>'
   +b+campoData('v_')+btnGenera('generaVendita')+'</div>';
+}
+function toggleVPiano(i){
+  document.getElementById('v_body'+i).style.display=cP('v_incluso'+i)?'block':'none';
 }
 
 
 function formRiparazione(){let ints='';for(let i=1;i<=6;i++)ints+='<input type="text" id="r_int'+i+'" class="prev-input" placeholder="Intervento '+i+'" style="margin-bottom:6px">';return'<div class="card"><h2>Riparazione / Manutenzione</h2>'+campoFormula('r_')+'<div class="prev-section"><label class="prev-label">Oggetto</label><textarea id="r_oggetto" class="prev-textarea" placeholder="es. REVISIONE e MESSA A PUNTO..."></textarea></div><div class="piano-block"><div class="piano-block-title">Interventi</div>'+ints+'</div><div class="prev-section"><label class="prev-label">Frase extra (opz.)</label><input type="text" id="r_extra" class="prev-input"></div><div class="prev-section"><label class="prev-label">Costo complessivo</label><input type="text" id="r_costo" class="prev-input" placeholder="es. 1750 IVA ESCLUSA"></div><div class="prev-section"><label class="prev-label">Escluso dal preventivo (opz.)</label><input type="text" id="r_escluso" class="prev-input"></div><div class="prev-section"><label class="prev-label">Incluso nel preventivo (opz.)</label><input type="text" id="r_incluso" class="prev-input"></div><div class="prev-section"><label class="prev-label">Consegna entro</label><input type="text" id="r_consegna" class="prev-input" placeholder="es. 31/12/2025"></div>'+campoData('r_')+btnGenera('generaRiparazione')+'</div>';}
 function formNoleggioLungo(){return'<div class="card"><h2>Noleggio Lungo Termine</h2>'+campoFormula('nl_')+'<div class="prev-section"><label class="prev-label">Durata</label><select id="nl_durata" class="prev-input"><option>Annuale</option><option>Biennale</option><option>Triennale</option><option>Semestrale</option></select></div><div class="prev-section"><label class="prev-label">Tipo pianoforte</label><select id="nl_tipo" class="prev-input"><option>Verticale</option><option>A Coda</option><option>Digitale</option></select></div><div class="prev-section"><label class="prev-label">Marca</label><input type="text" id="nl_marca" class="prev-input" placeholder="es. Yamaha"></div><div class="prev-section"><label class="prev-label">Eventuali specifiche (opz.)</label><input type="text" id="nl_specifiche" class="prev-input" placeholder="es. con Silent, modello U3"></div><div class="prev-section"><label class="prev-label">Costo annuale (euro)</label><input type="number" id="nl_annuale" class="prev-input" placeholder="es. 3660"></div><div class="prev-section"><label class="prev-label">Costo mensile (euro)</label><input type="number" id="nl_mensile" class="prev-input" placeholder="es. 305"></div>'+campoData('nl_')+btnGenera('generaNoleggioLungo')+'</div>';}
 function fmtData(d){if(!d)return'';const dt=new Date(d);return dt.toLocaleDateString('it-IT');}
-async function inviaAppsScript(tipo,nomeFile,seg){
+async function inviaAppsScript(tipo,nomeFile,seg,pianiEsclusi){
   const status=document.getElementById('prev-status');
   const btn=document.getElementById('btn-genera-prev');
   btn.disabled=true;btn.textContent='Generazione...';
   status.innerHTML='<span class="spinner"></span>Invio in corso...';
   try{
-    const res=await fetch(APPS_SCRIPT_PREVENTIVI,{method:'POST',body:JSON.stringify({tipo,nome_file:nomeFile,segnaposti:seg}),headers:{'Content-Type':'text/plain'},redirect:'follow'});
+    const res=await fetch(APPS_SCRIPT_PREVENTIVI,{method:'POST',body:JSON.stringify({tipo,nome_file:nomeFile,segnaposti:seg,pianiEsclusi:pianiEsclusi||[]}),headers:{'Content-Type':'text/plain'},redirect:'follow'});
     const data=await res.json();
     if(data.success){
       status.innerHTML='<span style="color:#A01020;font-weight:500">Salvato!</span><br><a href="'+data.wordUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri Word</a> &nbsp; <a href="'+data.pdfUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri PDF</a>';
@@ -803,17 +810,26 @@ function generaConcerto(){
 }
 function generaVendita(){
   const nf=vP('v_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Vendita';
-  const seg={'##FORMULA## ##DESTINATARIO##':vP('v_formula')+' '+vP('v_destinatario'),'##OGGETTO##':vP('v_oggetto'),'##DATA##':fmtData(vP('v_data')),'##LUOGO##':vP('v_luogo')};
+  const esclusi=[];
+  const seg={
+    '##FORMULA## ##DESTINATARIO##':vP('v_formula')+' '+vP('v_destinatario'),
+    '##OGGETTO##':vP('v_oggetto'),
+    '##LUOGO##':vP('v_luogo'),
+    '##DATA##':fmtData(vP('v_data')),
+  };
   for(let i=1;i<=4;i++){
-    const mat=vP('v_matricola'+i)?'Matricola '+vP('v_matricola'+i):'';
-    seg['##MARCA_'+i+'## ##MODELLO_'+i+'## - Anno ##ANNO_'+i+'## ##MATRICOLA_'+i+'##']=vP('v_marca'+i)+' '+vP('v_modello'+i)+(vP('v_anno'+i)?' - Anno '+vP('v_anno'+i):'')+(mat?' '+mat:'');
+    if(!cP('v_incluso'+i)){esclusi.push(i);continue;}
+    seg['##MARCA_'+i+'##']=vP('v_marca'+i);
+    seg['##MODELLO_'+i+'##']=vP('v_modello'+i);
+    seg['##ANNO_'+i+'##']=vP('v_anno'+i);
+    seg['##MATRICOLA_'+i+'##']=vP('v_matricola'+i);
     seg['##DESCRIZIONE_'+i+'##']=vP('v_desc'+i);
-    seg['##PREZZO_LISTINO_'+i+'##']=cP('v_cb_listino'+i)?'Prezzo di listino usato: EUR '+parseInt(vP('v_listino'+i)||0).toLocaleString('it-IT')+'\n':'';
-    seg['##PREZZO_SCONTATO_'+i+'##']=cP('v_cb_scontato'+i)?'Prezzo scontato: EUR '+parseInt(vP('v_scontato'+i)||0).toLocaleString('it-IT')+'\n':'';
-    seg['##SCONTO_RISERVATO_'+i+'##']=cP('v_cb_riservato'+i)?'Sconto riservato: EUR '+parseInt(vP('v_riservato'+i)||0).toLocaleString('it-IT')+'\n':'';
-    seg['##OFFERTA_RISERVATA_'+i+'##']=cP('v_cb_offerta'+i)?'Offerta riservata: EUR '+parseInt(vP('v_offerta'+i)||0).toLocaleString('it-IT')+'\n':'';
+    seg['##PREZZO_LISTINO_USATO_'+i+'##']=cP('v_cb_listino'+i)?parseInt(vP('v_listino'+i)||0).toLocaleString('it-IT'):'';
+    seg['##PREZZO_SCONTATO_'+i+'##']=cP('v_cb_scontato'+i)?parseInt(vP('v_scontato'+i)||0).toLocaleString('it-IT'):'';
+    seg['##SCONTO_'+i+'##']=cP('v_cb_riservato'+i)?parseInt(vP('v_riservato'+i)||0).toLocaleString('it-IT'):'';
+    seg['##OFFERTA_'+i+'##']=cP('v_cb_offerta'+i)?parseInt(vP('v_offerta'+i)||0).toLocaleString('it-IT'):'';
   }
-  inviaAppsScript('vendita',nf,seg);
+  inviaAppsScript('vendita',nf,seg,esclusi);
 }
 
 function formNoleggioLungo(){
@@ -859,13 +875,13 @@ function generaNoleggioLungo(){
 
 
 function fmtData(d){if(!d)return'';const dt=new Date(d);return dt.toLocaleDateString('it-IT');}
-async function inviaAppsScript(tipo,nomeFile,seg){
+async function inviaAppsScript(tipo,nomeFile,seg,pianiEsclusi){
   const status=document.getElementById('prev-status');
   const btn=document.getElementById('btn-genera-prev');
   btn.disabled=true;btn.textContent='Generazione...';
   status.innerHTML='<span class="spinner"></span>Invio in corso...';
   try{
-    const res=await fetch(APPS_SCRIPT_PREVENTIVI,{method:'POST',body:JSON.stringify({tipo,nome_file:nomeFile,segnaposti:seg}),headers:{'Content-Type':'text/plain'},redirect:'follow'});
+    const res=await fetch(APPS_SCRIPT_PREVENTIVI,{method:'POST',body:JSON.stringify({tipo,nome_file:nomeFile,segnaposti:seg,pianiEsclusi:pianiEsclusi||[]}),headers:{'Content-Type':'text/plain'},redirect:'follow'});
     const data=await res.json();
     if(data.success){
       status.innerHTML='<span style="color:#A01020;font-weight:500">Salvato!</span><br><a href="'+data.wordUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri Word</a> &nbsp; <a href="'+data.pdfUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri PDF</a>';
