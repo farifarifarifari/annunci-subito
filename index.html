@@ -824,10 +824,10 @@ function generaVendita(){
     seg['##ANNO_'+i+'##']=vP('v_anno'+i);
     seg['##MATRICOLA_'+i+'##']=vP('v_matricola'+i);
     seg['##DESCRIZIONE_'+i+'##']=vP('v_desc'+i);
-    seg['##PREZZO_LISTINO_USATO_'+i+'##']=cP('v_cb_listino'+i)?parseInt(vP('v_listino'+i)||0).toLocaleString('it-IT'):'';
-    seg['##PREZZO_SCONTATO_'+i+'##']=cP('v_cb_scontato'+i)?parseInt(vP('v_scontato'+i)||0).toLocaleString('it-IT'):'';
-    seg['##SCONTO_'+i+'##']=cP('v_cb_riservato'+i)?parseInt(vP('v_riservato'+i)||0).toLocaleString('it-IT'):'';
-    seg['##OFFERTA_'+i+'##']=cP('v_cb_offerta'+i)?parseInt(vP('v_offerta'+i)||0).toLocaleString('it-IT'):'';
+    seg['##RIGA_LISTINO_'+i+'##']=cP('v_cb_listino'+i)?'Prezzo di Listino dell\u2019Usato: \u20ac '+parseInt(vP('v_listino'+i)||0).toLocaleString('it-IT'):'';
+    seg['##RIGA_SCONTATO_'+i+'##']=cP('v_cb_scontato'+i)?'Prezzo Scontato: \u20ac '+parseInt(vP('v_scontato'+i)||0).toLocaleString('it-IT'):'';
+    seg['##RIGA_SCONTO_'+i+'##']=cP('v_cb_riservato'+i)?'Sconto Riservato: \u20ac '+parseInt(vP('v_riservato'+i)||0).toLocaleString('it-IT'):'';
+    seg['##RIGA_OFFERTA_'+i+'##']=cP('v_cb_offerta'+i)?'Offerta Riservata: \u20ac '+parseInt(vP('v_offerta'+i)||0).toLocaleString('it-IT'):'';
   }
   inviaAppsScript('vendita',nf,seg,esclusi);
 }
