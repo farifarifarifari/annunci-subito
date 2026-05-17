@@ -810,6 +810,7 @@ function generaConcerto(){
 }
 function generaVendita(){
   const nf=vP('v_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Vendita';
+  const DEL='@@CANCELLA_RIGA@@';
   const esclusi=[];
   const seg={
     '##FORMULA## ##DESTINATARIO##':vP('v_formula')+' '+vP('v_destinatario'),
@@ -824,10 +825,34 @@ function generaVendita(){
     seg['##ANNO_'+i+'##']=vP('v_anno'+i);
     seg['##MATRICOLA_'+i+'##']=vP('v_matricola'+i);
     seg['##DESCRIZIONE_'+i+'##']=vP('v_desc'+i);
-    seg['##RIGA_LISTINO_'+i+'##']=cP('v_cb_listino'+i)?'Prezzo di Listino dell\u2019Usato: \u20ac '+parseInt(vP('v_listino'+i)||0).toLocaleString('it-IT'):'';
-    seg['##RIGA_SCONTATO_'+i+'##']=cP('v_cb_scontato'+i)?'Prezzo Scontato: \u20ac '+parseInt(vP('v_scontato'+i)||0).toLocaleString('it-IT'):'';
-    seg['##RIGA_SCONTO_'+i+'##']=cP('v_cb_riservato'+i)?'Sconto Riservato: \u20ac '+parseInt(vP('v_riservato'+i)||0).toLocaleString('it-IT'):'';
-    seg['##RIGA_OFFERTA_'+i+'##']=cP('v_cb_offerta'+i)?'Offerta Riservata: \u20ac '+parseInt(vP('v_offerta'+i)||0).toLocaleString('it-IT'):'';
+    if(cP('v_cb_listino'+i)){
+      seg['##RIGA_LISTINO_'+i+'##']='Prezzo di Listino dell\u2019Usato';
+      seg['##PREZZO_LISTINO_USATO_'+i+'##']=parseInt(vP('v_listino'+i)||0).toLocaleString('it-IT');
+    }else{
+      seg['##RIGA_LISTINO_'+i+'##']=DEL;
+      seg['##PREZZO_LISTINO_USATO_'+i+'##']='';
+    }
+    if(cP('v_cb_scontato'+i)){
+      seg['##RIGA_SCONTATO_'+i+'##']='Prezzo Scontato';
+      seg['##PREZZO_SCONTATO_'+i+'##']=parseInt(vP('v_scontato'+i)||0).toLocaleString('it-IT');
+    }else{
+      seg['##RIGA_SCONTATO_'+i+'##']=DEL;
+      seg['##PREZZO_SCONTATO_'+i+'##']='';
+    }
+    if(cP('v_cb_riservato'+i)){
+      seg['##RIGA_SCONTO_'+i+'##']='Sconto Riservato';
+      seg['##SCONTO_'+i+'##']=parseInt(vP('v_riservato'+i)||0).toLocaleString('it-IT');
+    }else{
+      seg['##RIGA_SCONTO_'+i+'##']=DEL;
+      seg['##SCONTO_'+i+'##']='';
+    }
+    if(cP('v_cb_offerta'+i)){
+      seg['##RIGA_OFFERTA_'+i+'##']='Offerta Riservata';
+      seg['##OFFERTA_'+i+'##']=parseInt(vP('v_offerta'+i)||0).toLocaleString('it-IT');
+    }else{
+      seg['##RIGA_OFFERTA_'+i+'##']=DEL;
+      seg['##OFFERTA_'+i+'##']='';
+    }
   }
   inviaAppsScript('vendita',nf,seg,esclusi);
 }
