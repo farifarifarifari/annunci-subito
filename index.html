@@ -95,6 +95,8 @@ select:focus,input:focus{border-color:#A01020}
 .piano-block-title{font-size:12px;font-weight:600;color:#A01020;margin-bottom:10px}
 .prev-check-row{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
 .prev-check-row input[type=checkbox]{accent-color:#A01020;width:15px;height:15px;flex-shrink:0}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid #ddd;border-top-color:#A01020;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -768,7 +770,6 @@ function toggleVPiano(i){
 
 
 function formRiparazione(){let ints='';for(let i=1;i<=6;i++)ints+='<input type="text" id="r_int'+i+'" class="prev-input" placeholder="Intervento '+i+'" style="margin-bottom:6px">';return'<div class="card"><h2>Riparazione / Manutenzione</h2>'+campoFormula('r_')+'<div class="prev-section"><label class="prev-label">Oggetto</label><textarea id="r_oggetto" class="prev-textarea" placeholder="es. REVISIONE e MESSA A PUNTO..."></textarea></div><div class="piano-block"><div class="piano-block-title">Interventi</div>'+ints+'</div><div class="prev-section"><label class="prev-label">Frase extra (opz.)</label><input type="text" id="r_extra" class="prev-input"></div><div class="prev-section"><label class="prev-label">Costo complessivo</label><input type="text" id="r_costo" class="prev-input" placeholder="es. 1750 IVA ESCLUSA"></div><div class="prev-section"><label class="prev-label">Escluso dal preventivo (opz.)</label><input type="text" id="r_escluso" class="prev-input"></div><div class="prev-section"><label class="prev-label">Incluso nel preventivo (opz.)</label><input type="text" id="r_incluso" class="prev-input"></div><div class="prev-section"><label class="prev-label">Consegna entro</label><input type="text" id="r_consegna" class="prev-input" placeholder="es. 31/12/2025"></div>'+campoData('r_')+btnGenera('generaRiparazione')+'</div>';}
-function formNoleggioLungo(){return'<div class="card"><h2>Noleggio Lungo Termine</h2>'+campoFormula('nl_')+'<div class="prev-section"><label class="prev-label">Durata</label><select id="nl_durata" class="prev-input"><option>Annuale</option><option>Biennale</option><option>Triennale</option><option>Semestrale</option></select></div><div class="prev-section"><label class="prev-label">Tipo pianoforte</label><select id="nl_tipo" class="prev-input"><option>Verticale</option><option>A Coda</option><option>Digitale</option></select></div><div class="prev-section"><label class="prev-label">Marca</label><input type="text" id="nl_marca" class="prev-input" placeholder="es. Yamaha"></div><div class="prev-section"><label class="prev-label">Eventuali specifiche (opz.)</label><input type="text" id="nl_specifiche" class="prev-input" placeholder="es. con Silent, modello U3"></div><div class="prev-section"><label class="prev-label">Costo annuale (euro)</label><input type="number" id="nl_annuale" class="prev-input" placeholder="es. 3660"></div><div class="prev-section"><label class="prev-label">Costo mensile (euro)</label><input type="number" id="nl_mensile" class="prev-input" placeholder="es. 305"></div>'+campoData('nl_')+btnGenera('generaNoleggioLungo')+'</div>';}
 function fmtData(d){if(!d)return'';const dt=new Date(d);return dt.toLocaleDateString('it-IT');}
 async function inviaAppsScript(tipo,nomeFile,seg,pianiEsclusi){
   const status=document.getElementById('prev-status');
@@ -898,88 +899,11 @@ function generaNoleggioLungo(){
   });
 }
 
-
-function fmtData(d){if(!d)return'';const dt=new Date(d);return dt.toLocaleDateString('it-IT');}
-async function inviaAppsScript(tipo,nomeFile,seg,pianiEsclusi){
-  const status=document.getElementById('prev-status');
-  const btn=document.getElementById('btn-genera-prev');
-  btn.disabled=true;btn.textContent='Generazione...';
-  status.innerHTML='<span class="spinner"></span>Invio in corso...';
-  try{
-    const res=await fetch(APPS_SCRIPT_PREVENTIVI,{method:'POST',body:JSON.stringify({tipo,nome_file:nomeFile,segnaposti:seg,pianiEsclusi:pianiEsclusi||[]}),headers:{'Content-Type':'text/plain'},redirect:'follow'});
-    const data=await res.json();
-    if(data.success){
-      status.innerHTML='<span style="color:#A01020;font-weight:500">Salvato!</span><br><a href="'+data.wordUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri Word</a> &nbsp; <a href="'+data.pdfUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri PDF</a>';
-      btn.textContent='Salvato';
-    }else{throw new Error(data.error||'Errore');}
-  }catch(err){
-    status.innerHTML='<span style="color:#A32D2D">Errore: '+err.message+'</span>';
-    btn.disabled=false;btn.textContent='Genera e salva su Drive';
-  }
-}
-function generaConcerto(){
-  const nf=vP('c_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Concerto';
-  inviaAppsScript('concerto',nf,{
-    '##FORMULA####DESTINATARIO##':vP('c_formula')+' '+vP('c_destinatario'),
-    '##FORMULA## ##DESTINATARIO##':vP('c_formula')+' '+vP('c_destinatario'),
-    '##OGGETTO##':vP('c_oggetto'),
-    '##MARCA##':vP('c_marca'),
-    '##MODELLO_PIANOFORTE##':vP('c_modello'),
-    '##TIPO_CODA##':vP('c_tipo_coda'),
-    '##LUNGHEZZA_PIANOFORTE##':vP('c_lunghezza'),
-    '##RIGA_EVENTO_1##':vP('c_ev1'),
-    '##RIGA_EVENTO_2##':vP('c_ev2'),
-    '##Titolo_Sezione_Aggiuntiva##':vP('c_titolo_agg'),
-    '##TITOLO_SEZIONE_AGGIUNTIVA##':vP('c_titolo_agg'),
-    '##RIGA_EVENTO_3##':vP('c_ev3'),
-    '##RIGA_EVENTO_4##':vP('c_ev4'),
-    '##PREZZO##':vP('c_prezzo'),
-    '##DATA##':fmtData(vP('c_data')),
-    '##LUOGO##':vP('c_luogo'),
-  });
-}
-function generaVendita(){
-  const nf=vP('v_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Vendita';
-  const ann=parseInt(vP('v_annuale')||0);
-  const men=parseInt(vP('v_mensile')||0);
-  inviaAppsScript('vendita',nf,{
-    '##FORMULA## ##DESTINATARIO##':vP('v_formula')+' '+vP('v_destinatario'),
-    '##DURATA_1##':vP('v_durata1'),
-    '##TIPO_PIANOFORTE_1##':vP('v_tipo1'),
-    '##MARCA_1##':vP('v_marca1'),
-    '##EVENTUALI_SPECIFICHE_1##':vP('v_spec1'),
-    '##DURATA_2##':vP('v_durata2'),
-    '##TIPO_PIANOFORTE_2##':vP('v_tipo2'),
-    '##MARCA_2##':vP('v_marca2'),
-    '##EVENTUALI_SPECIFICHE_2##':vP('v_spec2'),
-    '##3660##':ann.toLocaleString('it-IT'),
-    '##40##':men.toLocaleString('it-IT'),
-    '##LUOGO##':vP('v_luogo'),
-    '##DATA##':fmtData(vP('v_data')),
-  });
-}
-
 function generaRiparazione(){
   const nf=vP('r_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Riparazione';
   const seg={'##FORMULA## ##DESTINATARIO##':vP('r_formula')+' '+vP('r_destinatario'),'##OGGETTO##':vP('r_oggetto'),'##FRASE EXTRA##':vP('r_extra'),'##COSTO_COMPLESSIVO_INTERVENTO##':vP('r_costo'),"##E'_escluso_dal_preventivo##":vP('r_escluso'),"##E'_incluso_nel_preventivo##":vP('r_incluso'),'##LUOGO##':vP('r_luogo'),'##DATA##':fmtData(vP('r_data')),'##Consegna strumenti entro il 31/12/2025.##':vP('r_consegna')?'Consegna strumenti entro il '+vP('r_consegna')+'.':''};
   for(let i=1;i<=6;i++)seg['##INTERVENTO_'+i+'##']=vP('r_int'+i)?'_ '+vP('r_int'+i):'';
   inviaAppsScript('riparazione',nf,seg);
-}
-function generaNoleggioLungo(){
-  const nf=vP('nl_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Noleggio_Lungo_Termine';
-  const ann=parseInt(vP('nl_annuale')||0);
-  const men=parseInt(vP('nl_mensile')||0);
-  inviaAppsScript('noleggio_lungo',nf,{
-    '##FORMULA## ##DESTINATARIO##':vP('nl_formula')+' '+vP('nl_destinatario'),
-    '##DURATA##':vP('nl_durata'),
-    '##TIPO_PIANOFORTE##':vP('nl_tipo'),
-    '##MARCA##':vP('nl_marca'),
-    '##EVENTUALI_SPECIFICHE##':vP('nl_specifiche'),
-    '##3660##':ann.toLocaleString('it-IT'),
-    '##40##':men.toLocaleString('it-IT'),
-    '##LUOGO##':vP('nl_luogo'),
-    '##DATA##':fmtData(vP('nl_data')),
-  });
 }
 
 </script>
