@@ -714,6 +714,11 @@ cercaMatricola();
         <h2>Tipo di preventivo</h2>
         <div id="prev-tipi" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
       </div>
+      <div class="card">
+        <h2>Modulistica</h2>
+        <div style="font-size:11px;color:#888;margin-bottom:10px">Moduli standard su carta intestata, pronti da mandare agli enti che li chiedono dopo la fattura.</div>
+        <div id="moduli-tipi" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+      </div>
       <div id="prev-form"></div>
     </div>
   </div>
@@ -861,14 +866,38 @@ const PV_MODELLI=[
 ]}
 ];
 
+/* ================== MODULISTICA PA ==================
+   Moduli standard su carta intestata. I dati dell'azienda (P.IVA, IBAN,
+   codici fiscali, dati dei soci) NON stanno qui: sono dentro i template
+   su Drive, che sono privati. Qui viaggiano solo ente, riferimenti e data.
+==================================================== */
+const PV_CAMPI_MODULO=[
+  {t:'opz',k:'##RIGA_INDIRIZZO##',l:'Indirizzo del destinatario',campo:'Riga',def:'',testo:'{v}'},
+  {t:'opz',k:'##RIGA_RIFERIMENTO##',l:'Riferimento pratica',campo:'Testo',def:'',testo:'Riferimento: {v}'},
+  {t:'opz',k:'##RIGA_CIG##',l:'CIG',campo:'Codice',def:'',testo:'CIG: {v}'},
+  {t:'opz',k:'##RIGA_CUP##',l:'CUP',campo:'Codice',def:'',testo:'CUP: {v}'},
+  {t:'opz',k:'##RIGA_ALLEGATO##',l:'Riga "allegata copia del documento d\'identità"',campo:'Testo',def:'Allegato: copia del documento d\'identità del sottoscritto in corso di validità.',testo:'{v}',on:true}
+];
+
+const PV_MODULI=[
+  {id:'modulo_tracciabilita',doc:'modulo',nome:'🏦 Tracciabilità flussi',titolo:'Tracciabilità dei flussi finanziari — L. 136/2010',file:'Tracciabilità Flussi Finanziari',campi:PV_CAMPI_MODULO},
+  {id:'modulo_art80',doc:'modulo',nome:'📜 Requisiti generali art. 80/94',titolo:'Dichiarazione requisiti generali — art. 80 D.Lgs. 50/2016 e art. 94 D.Lgs. 36/2023',file:'Dichiarazione Requisiti Generali',campi:PV_CAMPI_MODULO},
+  {id:'modulo_autocertificazione',doc:'modulo',nome:'🗂️ Autocertificazione unica',titolo:'Autocertificazione unica dei requisiti',file:'Autocertificazione Unica',campi:PV_CAMPI_MODULO},
+  {id:'modulo_art53',doc:'modulo',nome:'⚖️ Art. 53 c. 16-ter',titolo:'Dichiarazione art. 53 c. 16-ter D.Lgs. 165/2001',file:'Dichiarazione art 53',campi:PV_CAMPI_MODULO},
+  {id:'modulo_pari_opportunita',doc:'modulo',nome:'🤝 Pari opportunità art. 47',titolo:'Pari opportunità e inclusione — art. 47 D.L. 77/2021',file:'Pari Opportunità',campi:PV_CAMPI_MODULO}
+];
+
 let pvModello=null;
 
-/* ---------- costruzione elenco tipi ---------- */
+/* ---------- costruzione elenchi dei tipi ---------- */
 (function(){
-  const box=document.getElementById('prev-tipi');
-  if(!box) return;
-  box.innerHTML=PV_MODELLI.map(function(m,i){
-    return '<button class="btn-tipo-prev" onclick="pvSeleziona(this,'+i+')">'+m.nome+'</button>';
+  var box=document.getElementById('prev-tipi');
+  if(box) box.innerHTML=PV_MODELLI.map(function(m,i){
+    return '<button class="btn-tipo-prev" onclick="pvSeleziona(this,'+i+',\'preventivo\')">'+m.nome+'</button>';
+  }).join('');
+  var boxM=document.getElementById('moduli-tipi');
+  if(boxM) boxM.innerHTML=PV_MODULI.map(function(m,i){
+    return '<button class="btn-tipo-prev" onclick="pvSeleziona(this,'+i+',\'modulo\')">'+m.nome+'</button>';
   }).join('');
 })();
 
@@ -877,8 +906,8 @@ function pvEl(id){return document.getElementById(id);}
 function pvV(id){var e=pvEl(id);return e?e.value:'';}
 function pvC(id){var e=pvEl(id);return !!(e&&e.checked);}
 
-function pvSeleziona(btn,i){
-  pvModello=PV_MODELLI[i];
+function pvSeleziona(btn,i,fonte){
+  pvModello=(fonte==='modulo')?PV_MODULI[i]:PV_MODELLI[i];
   document.querySelectorAll('.btn-tipo-prev').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
   pvEl('prev-form').innerHTML=pvCostruisciForm(pvModello);
@@ -893,10 +922,16 @@ function pvSeleziona(btn,i){
 
 /* ---------- form ---------- */
 function pvCostruisciForm(m){
+  var modulo=(m.doc==='modulo');
   var h='<div class="card"><h2>'+pvEsc(m.titolo)+'</h2>';
-  h+='<div class="prev-section"><label class="prev-label">Formula</label><select id="p_formula" class="prev-input"><option>Preg.mo</option><option>Preg.ma</option><option>Spett.le</option><option>Egregio</option><option>Gentile</option><option>Alla c.a. della Direzione</option></select></div>';
-  h+='<div class="prev-section"><label class="prev-label">Destinatario</label><input type="text" id="p_destinatario" class="prev-input" placeholder="Nome cognome / Ente"></div>';
-  h+='<div class="prev-section"><label class="prev-label">Oggetto</label><textarea id="p_oggetto" class="prev-textarea">'+pvEsc(m.oggetto)+'</textarea></div>';
+  if(modulo){
+    h+='<div style="font-size:11px;color:#888;margin-bottom:10px">Modulo su carta intestata. I dati aziendali sono gia\' dentro: qui metti solo a chi va e i riferimenti della pratica.</div>';
+    h+='<div class="prev-section"><label class="prev-label">Ente destinatario</label><input type="text" id="p_ente" class="prev-input" placeholder="es. Istituto Comprensivo di Lendinara"></div>';
+  } else {
+    h+='<div class="prev-section"><label class="prev-label">Formula</label><select id="p_formula" class="prev-input"><option>Preg.mo</option><option>Preg.ma</option><option>Spett.le</option><option>Egregio</option><option>Gentile</option><option>Alla c.a. della Direzione</option></select></div>';
+    h+='<div class="prev-section"><label class="prev-label">Destinatario</label><input type="text" id="p_destinatario" class="prev-input" placeholder="Nome cognome / Ente"></div>';
+    h+='<div class="prev-section"><label class="prev-label">Oggetto</label><textarea id="p_oggetto" class="prev-textarea">'+pvEsc(m.oggetto)+'</textarea></div>';
+  }
 
   m.campi.forEach(function(c,idx){ h+=pvCampoHtml(c,idx); });
 
@@ -904,13 +939,21 @@ function pvCostruisciForm(m){
    + '<div style="font-size:11px;color:#888;margin-bottom:6px">Diciture o frasi a piacere. Una riga = un capoverso nel documento.</div>'
    + '<textarea id="p_note" class="prev-textarea" style="min-height:80px" placeholder="Scrivi qui qualsiasi cosa vada aggiunta a questo preventivo"></textarea></div>';
 
-  h+=pvRigaCasella('p_disp',true,'Chiusura "Rimaniamo a disposizione"')
-   + '<div id="p_disp_box" class="prev-section"><input type="text" id="p_disp_v" class="prev-input" value="'+pvEsc(PV_F.disponibilita)+'"></div>';
-
   var oggi=new Date().toISOString().split('T')[0];
+
+  if(modulo){
+    h+=pvRigaCasella('p_dataon',true,'Inserisci nel modulo la data di compilazione');
+    h+='<div id="p_dataon_box" class="prev-section" style="font-size:11px;color:#888">La data qui sotto finisce sia nel modulo sia nel nome del file.</div>';
+  } else {
+    h+=pvRigaCasella('p_disp',true,'Chiusura "Rimaniamo a disposizione"')
+     + '<div id="p_disp_box" class="prev-section"><input type="text" id="p_disp_v" class="prev-input" value="'+pvEsc(PV_F.disponibilita)+'"></div>';
+  }
+
   h+='<div class="prev-section"><label class="prev-label">Luogo</label><input type="text" id="p_luogo" class="prev-input" value="Rovigo"></div>';
-  h+='<div class="prev-section"><label class="prev-label">Data preventivo</label><input type="date" id="p_data" class="prev-input" value="'+oggi+'"></div>';
-  h+='<div class="prev-section"><label class="prev-label">Nome file</label><input type="text" id="p_nomefile" class="prev-input" placeholder="es. 2026-08-29_Preventivo_Rossi"></div>';
+  h+='<div class="prev-section"><label class="prev-label">Data</label><input type="date" id="p_data" class="prev-input" value="'+oggi+'"'+(modulo?' onchange="pvNomeModulo()"':'')+'></div>';
+  h+='<div class="prev-section"><label class="prev-label">Nome file</label><input type="text" id="p_nomefile" class="prev-input"'
+   + (modulo ? ' value="'+pvEsc(oggi+' Modulo '+m.file)+'"' : ' placeholder="es. 2026-08-29_Preventivo_Rossi"')
+   + '></div>';
   h+='<button onclick="pvGenera()" class="btn-primary" id="btn-genera-prev" style="margin-top:6px">Genera e salva su Drive</button>';
   h+='<div id="prev-status" style="margin-top:10px;font-size:12px;color:#888;text-align:center"></div>';
   return h+'</div>';
@@ -1170,12 +1213,20 @@ function pvRaccogliOpzioni(dom){
 function pvCostruisciPayload(){
   var m=pvModello;
   var seg={}, righe={};
-  seg['##FORMULA##']=pvV('p_formula');
-  seg['##DESTINATARIO##']=pvV('p_destinatario');
-  seg['##OGGETTO##']=pvV('p_oggetto');
-  seg['##LUOGO##']=pvV('p_luogo')||'Rovigo';
-  seg['##DATA##']=pvFmtData(pvV('p_data'));
-  seg['##RIGA_DISPONIBILITA##']=pvC('p_disp')?(pvV('p_disp_v')||PV_F.disponibilita):PV_DEL;
+  var modulo=(m.doc==='modulo');
+  var luogo=pvV('p_luogo')||'Rovigo';
+
+  if(modulo){
+    seg['##ENTE##']=pvV('p_ente');
+    seg['##RIGA_DATA##']=pvC('p_dataon')?(luogo+', '+pvFmtData(pvV('p_data'))):PV_DEL;
+  } else {
+    seg['##FORMULA##']=pvV('p_formula');
+    seg['##DESTINATARIO##']=pvV('p_destinatario');
+    seg['##OGGETTO##']=pvV('p_oggetto');
+    seg['##LUOGO##']=luogo;
+    seg['##DATA##']=pvFmtData(pvV('p_data'));
+    seg['##RIGA_DISPONIBILITA##']=pvC('p_disp')?(pvV('p_disp_v')||PV_F.disponibilita):PV_DEL;
+  }
 
   m.campi.forEach(function(c,idx){
     if(c.t==='testo'||c.t==='iva'){ seg[c.k||'##REGIME_IVA##']=pvV('f'+idx); return; }
@@ -1193,11 +1244,33 @@ function pvCostruisciPayload(){
 
   righe['##NOTE_LIBERE##']=pvV('p_note').split('\n').map(function(r){return r.trim();}).filter(function(r){return r!=='';});
 
-  var nf=pvV('p_nomefile')||(new Date().toISOString().split('T')[0]+'_Preventivo_'+m.id);
+  var oggi=new Date().toISOString().split('T')[0];
+  var nf=pvV('p_nomefile')||(modulo ? (pvV('p_data')||oggi)+' Modulo '+m.file : oggi+'_Preventivo_'+m.id);
   return { versione:2, modello:m.id, nome_file:nf, segnaposti:seg, righe:righe };
 }
 
+/* il nome del file segue la data scelta: 2026-08-29 Modulo Tracciabilita' Flussi Finanziari */
+function pvNomeModulo(){
+  if(!pvModello || pvModello.doc!=='modulo') return;
+  var campo=pvEl('p_nomefile'); if(!campo) return;
+  var d=pvV('p_data')||new Date().toISOString().split('T')[0];
+  campo.value=d+' Modulo '+pvModello.file;
+}
+
 function pvFmtData(d){ if(!d) return ''; var dt=new Date(d); return dt.toLocaleDateString('it-IT'); }
+
+function pvCopiaLink(url,btn){
+  var fine=function(){ btn.textContent='Link copiato'; setTimeout(function(){ btn.textContent='Copia link del PDF'; },2000); };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(fine).catch(function(){ pvCopiaVecchioModo(url,fine); }); }
+  else { pvCopiaVecchioModo(url,fine); }
+}
+function pvCopiaVecchioModo(testo,fine){
+  var t=document.createElement('textarea');
+  t.value=testo; t.style.position='fixed'; t.style.opacity='0';
+  document.body.appendChild(t); t.select();
+  try{ document.execCommand('copy'); fine(); }catch(e){ prompt('Copia il link:', testo); }
+  document.body.removeChild(t);
+}
 
 async function pvGenera(){
   var payload=pvCostruisciPayload();
@@ -1209,7 +1282,10 @@ async function pvGenera(){
     var res=await fetch(PV_ENDPOINT,{method:'POST',body:JSON.stringify(payload),headers:{'Content-Type':'text/plain'},redirect:'follow'});
     var data=await res.json();
     if(data.success){
-      status.innerHTML='<span style="color:#A01020;font-weight:500">Salvato!</span><br><a href="'+data.wordUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri Word</a> &nbsp; <a href="'+data.pdfUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri PDF</a>';
+      status.innerHTML='<span style="color:#A01020;font-weight:500">Salvato su Drive!</span><br>'
+        + '<a href="'+data.wordUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri Word</a> &nbsp; '
+        + '<a href="'+data.pdfUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri PDF</a><br>'
+        + '<button type="button" class="btn-tipo-prev" style="margin-top:8px" onclick="pvCopiaLink(\''+data.pdfUrl+'\',this)">Copia link del PDF</button>';
       btn.textContent='Salvato';
     } else { throw new Error(data.error||'Errore'); }
   }catch(err){
