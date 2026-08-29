@@ -921,7 +921,14 @@ function pvRigaCasella(id,on,label){
 }
 function pvToggleBox(id){
   var b=pvEl(id+'_box'); if(b) b.style.display=pvC(id)?'block':'none';
-  var e=pvEl(id+'_elenco'); if(e) e.style.display=pvC(id)?'block':'none';
+  var e=pvEl(id+'_elenco');
+  if(e){
+    e.style.display=pvC(id)?'block':'none';
+    if(pvC(id)){
+      var dentro=e.querySelector('[id^="el"]');
+      if(dentro && !dentro.querySelector('.riga-voce')) pvAggiungiRiga(dentro.id);
+    }
+  }
 }
 
 function pvCampoHtml(c,idx){
