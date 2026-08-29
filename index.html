@@ -712,200 +712,413 @@ cercaMatricola();
     <div style="max-width:560px;margin:0 auto">
       <div class="card">
         <h2>Tipo di preventivo</h2>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <button class="btn-tipo-prev" onclick="selezionaTipoPreventivo(this,'concerto')">🎹 Noleggio Concerto</button>
-          <button class="btn-tipo-prev" onclick="selezionaTipoPreventivo(this,'vendita')">🏷️ Vendita</button>
-          <button class="btn-tipo-prev" onclick="selezionaTipoPreventivo(this,'riparazione')">🔧 Riparazione</button>
-          <button class="btn-tipo-prev" onclick="selezionaTipoPreventivo(this,'noleggio_lungo')">📋 Noleggio Lungo Termine</button>
-        </div>
+        <div id="prev-tipi" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
       </div>
       <div id="prev-form"></div>
     </div>
   </div>
 <script>
-const APPS_SCRIPT_PREVENTIVI='https://script.google.com/macros/s/AKfycbx-W946KwezuWxFOYDFjyPpg6ixbZuqg2dDyLoQn8uR8YLQTYUGqXxZuEwGGV8aRPRHLA/exec';
-let tipoPreventivo=null;
-function selezionaTipoPreventivo(btn,tipo){
-  tipoPreventivo=tipo;
-  document.querySelectorAll('.btn-tipo-prev').forEach(b=>b.classList.remove('active'));
+/* ================== PREVENTIVI v2 ==================
+   11 modelli. Ogni voce e' di tre tipi:
+   - campo fisso            -> va sempre nel documento
+   - casella opzionale      -> se non la spunti, la riga sparisce (@@CANCELLA_RIGA@@)
+   - elenco a numero libero -> quante righe servono, da zero a venti
+   In fondo a ogni modello c'e' sempre la sezione a testo libero.
+=================================================== */
+const PV_ENDPOINT='https://script.google.com/macros/s/AKfycbx-W946KwezuWxFOYDFjyPpg6ixbZuqg2dDyLoQn8uR8YLQTYUGqXxZuEwGGV8aRPRHLA/exec';
+const PV_DEL='@@CANCELLA_RIGA@@';
+
+/* voci ricorrenti pronte da spuntare */
+const PV_PRESET_LAVORAZIONI=['Pulizia completa dell’interno dello strumento','Lucidatura degli ottoni e parti in metallo','Sostituzione guarniture della piastra di ghisa e cordiera','Sverniciatura, riparazione e verniciatura tavola armonica','Verniciatura piastra di ghisa','Sostituzione completa di corde e caviglie','Sostituzione dei martelli','Sostituzione cavalletti o restauro completo','Sostituzione fiocchi degli smorzatori','Sostituzione paramartelli','Ripristino feltri e pelli usurati della meccanica','Sostituzione guarnizioni della tastiera, di centro e frontali','Sostituzione punte feltri e rosette del telaio tastiera','Lucidatura tasti in avorio','Rettifica tasti in ebano','Pulizia e ceratura del mobile','Regolazione completa della meccanica-tastiera','Stabilizzazione dell’allungamento dell’acciaio della cordiera','Accordature','Intonazione dei martelli'];
+const PV_PRESET_INTERVENTI=['Pulizia interna strumento','Revisione e lucidatura del mobile','Smontaggio, revisione e regolazione completa della meccanica','Rasatura martelliera','Intonazione','Accordature','Sostituzione corde','Trasporto di ritiro e consegna'];
+const PV_PRESET_FASI=['Ritiro degli strumenti presso la sede del cliente','Consegna presso la sede del concerto','Ritiro serale al termine del concerto','Riconsegna il giorno successivo','Facchinaggio e posizionamento in sala'];
+
+/* ---- frasi ricorrenti usate dalle caselle opzionali ---- */
+const PV_F={
+  sgabello:'Incluso nel prezzo uno sgabello professionale regolabile in altezza.',
+  coperta:'Inclusa nel prezzo la coperta copri-pianoforte.',
+  messaPunto:'Ogni pianoforte della nostra collezione viene da noi personalmente seguito in tutte le fasi della preparazione. Sarà possibile personalizzare la messa a punto di ogni strumento a seconda delle esigenze del cliente.',
+  trasportoValutare:'L’eventuale contributo per il trasporto di consegna sarà valutato una volta ricevute informazioni precise riguardo il luogo di posizionamento dello strumento.',
+  scaloAcquisto:'In caso di acquisto futuro di un pianoforte di valore pari o superiore a quello noleggiato, verrà scalato dal prezzo di acquisto l’intero importo versato per il primo anno di noleggio.',
+  disponibilita:'Rimaniamo a disposizione per qualsiasi ulteriore informazione.'
+};
+
+const PV_MODELLI=[
+{id:'concerto_date',nome:'🎹 Concerto a date',titolo:'Noleggio per Concerto - a date',oggetto:'Preventivo di Noleggio Pianoforte per Concerto',campi:[
+  {t:'testo',k:'##MARCA##',l:'Marca',ph:'es. Yamaha'},
+  {t:'testo',k:'##MODELLO_PIANOFORTE##',l:'Modello',ph:'es. C3'},
+  {t:'testo',k:'##SPECIFICHE_STRUMENTO##',l:'Specifiche strumento',ph:'es. ( pianoforte mezza coda di 186 cm )'},
+  {t:'elenco',k:'##ELENCO_EVENTI##',l:'Date / eventi',ph:'_ 02.07 Rovigo - Piazza V. Emanuele ore 21.00',pref:'_ '},
+  {t:'opz',k:'##TITOLO_SEZIONE_AGGIUNTIVA##',l:'Sezione date aggiuntive',campo:'Titolo sezione',def:'Eventuali date aggiuntive',testo:'{v}',elenco:{k:'##ELENCO_EVENTI_AGGIUNTIVI##',l:'Date aggiuntive',ph:'_ 15.09 Adria - Teatro Comunale ore 21.00',pref:'_ '}},
+  {t:'testo',k:'##PREZZO##',l:'Prezzo totale (EUR)',ph:'es. 350'},
+  {t:'opz',k:'##RIGA_ACCORDATURA##',l:'Accordatura in loco',campo:'Testo',def:'Accordatura in loco inclusa nel prezzo.',testo:'{v}'},
+  {t:'opz',k:'##RIGA_ASSISTENZA_TECNICA##',l:'Assistenza tecnica durante il concerto',campo:'Testo',def:'Assistenza tecnica presente per tutta la durata del concerto.',testo:'{v}'},
+  {t:'opz',k:'##RIGA_TRASPORTO##',l:'Nota sul trasporto',campo:'Testo',def:PV_F.trasportoValutare,testo:'{v}'},
+  {t:'opz',k:'##RIGA_SCONTO##',l:'Sconto riservato',campo:'Importo / testo',def:'',testo:'Sconto riservato: € {v}'}
+]},
+
+{id:'concerto_opzioni',nome:'🎭 Concerto a opzioni',titolo:'Noleggio per Concerto - a opzioni',oggetto:'Preventivo di Spesa per Noleggio Pianoforti',campi:[
+  {t:'testo',k:'##DETTAGLIO_RICHIESTA##',l:'Dettaglio richiesta',ph:'es. in data 19 Giugno 2025'},
+  {t:'opzioni',k:'##ELENCO_OPZIONI##',l:'Opzioni proposte'},
+  {t:'opz',k:'##RIGA_NOTA_OPZIONI##',l:'Nota sulle opzioni',campo:'Testo',def:'I prezzi si intendono comprensivi di trasporti, noleggio e assistenza tecnica alla consegna.',testo:'{v}'},
+  {t:'opz',k:'##RIGA_TRASPORTO##',l:'Nota sul trasporto',campo:'Testo',def:PV_F.trasportoValutare,testo:'{v}'},
+  {t:'opz',k:'##RIGA_ACCORDATURA##',l:'Accordatura in loco',campo:'Testo',def:'Accordatura in loco inclusa nel prezzo.',testo:'{v}'}
+]},
+
+{id:'noleggio_lungo',nome:'📋 Noleggio lungo termine',titolo:'Noleggio a Lungo Termine',oggetto:'PREVENTIVO DI SPESA NOLEGGIO ANNUALE PIANOFORTE',campi:[
+  {t:'opz',k:'##RIGA_INDIRIZZO_1##',l:'Indirizzo destinatario (riga 1)',campo:'Riga',def:'',testo:'{v}'},
+  {t:'opz',k:'##RIGA_INDIRIZZO_2##',l:'Indirizzo destinatario (riga 2)',campo:'Riga',def:'',testo:'{v}'},
+  {t:'opz',k:'##RIGA_APERTURA##',l:'Frase di apertura',campo:'Testo',def:'Come da richiesta inviamo la nostra migliore offerta per il noleggio a lungo termine:',testo:'{v}'},
+  {t:'strumenti_noleggio',k:'##ELENCO_STRUMENTI##',l:'Strumenti e canoni'},
+  {t:'opz',k:'##RIGA_SGABELLO##',l:'Sgabello incluso',campo:'Testo',def:PV_F.sgabello,testo:'{v}',on:true},
+  {t:'opz',k:'##RIGA_COPERTA##',l:'Coperta inclusa',campo:'Testo',def:PV_F.coperta,testo:'{v}'},
+  {t:'opz',k:'##RIGA_MESSA_A_PUNTO##',l:'Messa a punto personalizzabile',campo:'Testo',def:PV_F.messaPunto,testo:'{v}',on:true},
+  {t:'opz',k:'##RIGA_TRASPORTO##',l:'Nota sul trasporto',campo:'Testo',def:PV_F.trasportoValutare,testo:'{v}'},
+  {t:'opz',k:'##RIGA_SCALO_ACQUISTO##',l:'Primo anno scalato in caso di acquisto',campo:'Testo',def:PV_F.scaloAcquisto,testo:'{v}'},
+  {t:'opz',k:'##RIGA_CONSEGNA##',l:'Consegna entro',campo:'Data / testo',def:'',testo:'La consegna sarà effettuata entro il {v}.'},
+  {t:'opz',k:'##RIGA_COSTO_CONSEGNA##',l:'Costo della consegna',campo:'Importo',def:'',testo:'Costo della consegna € {v} IVA ESCLUSA'}
+]},
+
+{id:'rinnovo_flotta',nome:'🏛️ Rinnovo flotta',titolo:'Rinnovo Noleggio Flotta',oggetto:'PREVENTIVO per RINNOVO NOLEGGIO ANNUALE PIANOFORTI',campi:[
+  {t:'opz',k:'##RIGA_INDIRIZZO_1##',l:'Indirizzo destinatario',campo:'Riga',def:'',testo:'{v}'},
+  {t:'testo',k:'##NUMERO_STRUMENTI##',l:'Numero strumenti',ph:'es. 8'},
+  {t:'testo',k:'##MARCA##',l:'Marca',ph:'es. Yamaha'},
+  {t:'testo',k:'##SERIE_MODELLO##',l:'Serie / modello',ph:'es. serie professionale U, modello U1'},
+  {t:'testo',k:'##SEDE##',l:'Sede',ph:'es. il Teatro'},
+  {t:'elenco',k:'##ELENCO_STRUMENTI##',l:'Elenco strumenti / matricole (opzionale)',ph:'Yamaha U1 - matricola 1234567'},
+  {t:'testo',k:'##PREZZO##',l:'Costo complessivo annuale (EUR)',ph:'es. 4500,00'},
+  {t:'iva'},
+  {t:'opz',k:'##RIGA_PERIODO##',l:'Periodo di validità',campo:'Testo',def:'',testo:'Periodo di validità: {v}'},
+  {t:'opz',k:'##RIGA_ACCORDATURE_INCLUSE##',l:'Accordature incluse',campo:'Testo',def:'Accordature periodiche incluse nel canone.',testo:'{v}'},
+  {t:'opz',k:'##RIGA_ASSISTENZA_TECNICA##',l:'Assistenza tecnica inclusa',campo:'Testo',def:'Assistenza tecnica inclusa per tutta la durata del noleggio.',testo:'{v}'}
+]},
+
+{id:'vendita',nome:'🏷️ Vendita pianoforti',titolo:'Vendita Pianoforti',oggetto:'PREVENTIVO ACQUISTO PIANOFORTE',campi:[
+  {t:'opz',k:'##RIGA_APERTURA##',l:'Frase di apertura',campo:'Testo',def:'Come da richiesta inviamo la nostra migliore offerta:',testo:'{v}'},
+  {t:'strumenti_vendita',k:'##ELENCO_STRUMENTI##',l:'Pianoforti proposti'},
+  {t:'opz',k:'##RIGA_MESSA_A_PUNTO##',l:'Messa a punto personalizzabile',campo:'Testo',def:PV_F.messaPunto,testo:'{v}',on:true},
+  {t:'opz',k:'##RIGA_SGABELLO##',l:'Sgabello incluso',campo:'Testo',def:PV_F.sgabello,testo:'{v}',on:true},
+  {t:'opz',k:'##RIGA_TRASPORTO##',l:'Nota sul trasporto',campo:'Testo',def:PV_F.trasportoValutare,testo:'{v}',on:true},
+  {t:'opz',k:'##RIGA_GARANZIA##',l:'Garanzia',campo:'Testo',def:'Strumento coperto da garanzia di 12 mesi.',testo:'{v}'},
+  {t:'opz',k:'##RIGA_PERMUTA##',l:'Permuta',campo:'Testo',def:'',testo:'Valutazione in permuta dello strumento attuale: € {v}'}
+]},
+
+{id:'catalogo',nome:'📖 Catalogo disponibilità',titolo:'Catalogo Disponibilità',oggetto:'Panoramica generale costi di acquisto',campi:[
+  {t:'opz',k:'##RIGA_APERTURA##',l:'Frase di apertura',campo:'Testo',def:'',testo:'{v}'},
+  {t:'strumenti_catalogo',k:'##ELENCO_STRUMENTI##',l:'Strumenti a catalogo'},
+  {t:'opz',k:'##RIGA_MESSA_A_PUNTO##',l:'Messa a punto personalizzabile',campo:'Testo',def:PV_F.messaPunto,testo:'{v}',on:true},
+  {t:'opz',k:'##RIGA_SGABELLO##',l:'Sgabello incluso',campo:'Testo',def:'Incluso nel prezzo di ogni pianoforte uno sgabello professionale regolabile in altezza nuovo e il panno copri-tastiera.',testo:'{v}',on:true},
+  {t:'opz',k:'##RIGA_TRASPORTO##',l:'Nota sul trasporto',campo:'Testo',def:PV_F.trasportoValutare,testo:'{v}'}
+]},
+
+{id:'digitali_scuole',nome:'🎹 Digitali / scuole',titolo:'Digitali e Forniture Scuole',oggetto:'PREVENTIVO ACQUISTO PIANOFORTI DIGITALI',campi:[
+  {t:'opz',k:'##RIGA_INDIRIZZO_1##',l:'Indirizzo destinatario',campo:'Riga',def:'',testo:'{v}'},
+  {t:'opz',k:'##TITOLO_IN_USO##',l:'Sezione strumenti già in uso',campo:'Titolo',def:'_ Elenco Pianoforti già in utilizzo dall’Istituto:',testo:'{v}',elenco:{k:'##ELENCO_IN_USO##',l:'Strumenti già in uso',ph:'Casio Cdp S110 Bianco + Supporto Mobile'}},
+  {t:'opz',k:'##RIGA_COSTO_BASE##',l:'Costo della fornitura base',campo:'Testo',def:'',testo:'{v}'},
+  {t:'opz',k:'##TITOLO_ALTERNATIVE##',l:'Sezione alternative',campo:'Titolo',def:'_ Pianoforte Digitale Aggiuntivo di Fascia Superiore',testo:'{v}',elenco:{k:'##ELENCO_ALTERNATIVE##',l:'Alternative proposte',ph:'Casio AP300 € 900 IVA ESCLUSA'}},
+  {t:'opz',k:'##RIGA_MONTAGGIO##',l:'Montaggio',campo:'Importo',def:'',testo:'( Eventuale montaggio € {v} IVA esclusa )'},
+  {t:'elenco',k:'##ELENCO_TOTALI##',l:'Totali per alternativa',ph:'Valore complessivo offerta con Casio AP300: € 2500 IVA esclusa'},
+  {t:'opz',k:'##RIGA_CONSEGNA##',l:'Consegna entro',campo:'Data / testo',def:'',testo:'La consegna sarà effettuata entro il {v}.'},
+  {t:'opz',k:'##RIGA_GARANZIA##',l:'Garanzia',campo:'Testo',def:'Strumenti coperti da garanzia di 24 mesi.',testo:'{v}'}
+]},
+
+{id:'riparazione',nome:'🔧 Riparazione / revisione',titolo:'Riparazione e Revisione',oggetto:'REVISIONE E MESSA A PUNTO',campi:[
+  {t:'opz',k:'##RIGA_APERTURA##',l:'Frase di apertura',campo:'Testo',def:'Come da richiesta inviamo la nostra migliore offerta per i seguenti interventi:',testo:'{v}',on:true},
+  {t:'elenco',k:'##ELENCO_INTERVENTI##',l:'Interventi',ph:'Pulizia interna strumento',pref:'_ ',preset:PV_PRESET_INTERVENTI},
+  {t:'opz',k:'##RIGA_FRASE_EXTRA##',l:'Frase extra',campo:'Testo',def:'Seguirà documentazione fotografica dei lavori.',testo:'{v}'},
+  {t:'elenco',k:'##ELENCO_COSTI##',l:'Costi',ph:'Costo complessivo intervento € 1750 IVA ESCLUSA'},
+  {t:'opz',k:'##RIGA_ESCLUSO##',l:'Escluso dal preventivo',campo:'Testo',def:'',testo:'È escluso dal preventivo {v}'},
+  {t:'opz',k:'##RIGA_INCLUSO##',l:'Incluso nel preventivo',campo:'Testo',def:'',testo:'È incluso nel preventivo {v}'},
+  {t:'opz',k:'##RIGA_TRASPORTO##',l:'Trasporto ritiro e consegna',campo:'Testo',def:'Trasporto di ritiro e consegna incluso.',testo:'{v}'},
+  {t:'opz',k:'##RIGA_CONSEGNA##',l:'Consegna entro',campo:'Data / testo',def:'',testo:'Consegna strumenti entro il {v}.'}
+]},
+
+{id:'restauro',nome:'🪚 Restauro',titolo:'Restauro',oggetto:'Preventivo per intervento di restauro',campi:[
+  {t:'opz',k:'##RIGA_APERTURA##',l:'Frase di apertura',campo:'Testo',def:'',testo:'{v}'},
+  {t:'elenco',k:'##ELENCO_LAVORAZIONI##',l:'Lavorazioni',ph:'Pulizia completa dell’interno dello strumento',pref:'- ',preset:PV_PRESET_LAVORAZIONI},
+  {t:'opz',k:'##RIGA_TRASPORTI##',l:'Trasporti',campo:'Testo',def:'3 trasporti: ritiro / consegna / spostamento',testo:'- {v}'},
+  {t:'testo',k:'##PREZZO##',l:'Costo complessivo (EUR)',ph:'es. 15.000'},
+  {t:'iva'},
+  {t:'opz',k:'##RIGA_TEMPI##',l:'Tempi di lavorazione',campo:'Testo',def:'',testo:'Tempi di lavorazione: {v}'},
+  {t:'opz',k:'##RIGA_DOCUMENTAZIONE_FOTO##',l:'Documentazione fotografica',campo:'Testo',def:'Seguirà documentazione fotografica dei lavori.',testo:'{v}'}
+]},
+
+{id:'accordature',nome:'🎼 Accordature',titolo:'Accordature e Manutenzione',oggetto:'Accordatura Pianoforti',campi:[
+  {t:'testo',k:'##DETTAGLIO_SERVIZIO##',l:'Dettaglio servizio',ph:'es. l’accordatura dei 2 pianoforti situati presso i Plessi di Lozzo Atestino'},
+  {t:'elenco',k:'##ELENCO_SEDI##',l:'Sedi / plessi (opzionale)',ph:'Plesso di Lozzo Atestino - 1 pianoforte verticale'},
+  {t:'opz',k:'##RIGA_COSTO_UNITARIO##',l:'Costo unitario',campo:'Importo',def:'',testo:'Costo per accordatura € {v} + IVA'},
+  {t:'testo',k:'##PREZZO_TOTALE##',l:'Costo complessivo (EUR)',ph:'es. 260'},
+  {t:'iva'},
+  {t:'elenco',k:'##ELENCO_INTERVENTI_AGGIUNTIVI##',l:'Interventi aggiuntivi (opzionale)',ph:'Piccola regolazione meccanica € 60 + IVA'},
+  {t:'opz',k:'##RIGA_TEMPI##',l:'Tempi / periodo',campo:'Testo',def:'',testo:'Interventi da eseguire entro {v}.'}
+]},
+
+{id:'trasporto',nome:'🚚 Trasporto',titolo:'Trasporto e Logistica',oggetto:'Preventivo per Servizio di Trasporto Strumenti',campi:[
+  {t:'elenco',k:'##ELENCO_FASI##',l:'Fasi del servizio',ph:'ritiro degli strumenti presso le 3 sedi (27/06/2025)',preset:PV_PRESET_FASI},
+  {t:'testo',k:'##PREZZO##',l:'Costo complessivo (EUR)',ph:'es. 1200,00'},
+  {t:'iva'},
+  {t:'opz',k:'##RIGA_FACCHINAGGIO##',l:'Facchinaggio',campo:'Testo',def:'Facchinaggio e posizionamento in sala inclusi.',testo:'{v}'},
+  {t:'opz',k:'##RIGA_ASSISTENZA_TECNICA##',l:'Assistenza tecnica',campo:'Testo',def:'Assistenza tecnica alla consegna inclusa.',testo:'{v}'},
+  {t:'opz',k:'##RIGA_ACCORDATURA##',l:'Accordatura in loco',campo:'Testo',def:'Accordatura in loco inclusa nel prezzo.',testo:'{v}'}
+]}
+];
+
+let pvModello=null;
+
+/* ---------- costruzione elenco tipi ---------- */
+(function(){
+  const box=document.getElementById('prev-tipi');
+  if(!box) return;
+  box.innerHTML=PV_MODELLI.map(function(m,i){
+    return '<button class="btn-tipo-prev" onclick="pvSeleziona(this,'+i+')">'+m.nome+'</button>';
+  }).join('');
+})();
+
+function pvEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function pvEl(id){return document.getElementById(id);}
+function pvV(id){var e=pvEl(id);return e?e.value:'';}
+function pvC(id){var e=pvEl(id);return !!(e&&e.checked);}
+
+function pvSeleziona(btn,i){
+  pvModello=PV_MODELLI[i];
+  document.querySelectorAll('.btn-tipo-prev').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
-  const form=document.getElementById('prev-form');
-  if(tipo==='concerto')form.innerHTML=formConcerto();
-  else if(tipo==='vendita')form.innerHTML=formVendita();
-  else if(tipo==='riparazione')form.innerHTML=formRiparazione();
-  else if(tipo==='noleggio_lungo')form.innerHTML=formNoleggioLungo();
+  pvEl('prev-form').innerHTML=pvCostruisciForm(pvModello);
+  pvModello.campi.forEach(function(c,idx){
+    if(c.t==='elenco') pvAggiungiRiga('el'+idx);
+    if(c.t==='strumenti_vendita'||c.t==='strumenti_noleggio'||c.t==='strumenti_catalogo') pvAggiungiStrumento('st'+idx,c.t);
+    if(c.t==='opzioni') pvAggiungiOpzione('op'+idx);
+  });
+  pvEl('prev-form').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function vP(id){return(document.getElementById(id)||{}).value||'';}
-function cP(id){return!!(document.getElementById(id)&&document.getElementById(id).checked);}
-function campoFormula(p){return'<div class="prev-section"><label class="prev-label">Formula</label><select id="'+p+'formula" class="prev-input"><option>Preg.mo</option><option>Preg.ma</option><option>Spett.le</option><option>Egregio</option><option>Gentile</option></select></div><div class="prev-section"><label class="prev-label">Destinatario</label><input type="text" id="'+p+'destinatario" class="prev-input" placeholder="Nome cognome / Ente"></div>';}
-function campoData(p){const oggi=new Date().toISOString().split('T')[0];return'<div class="prev-section"><label class="prev-label">Data preventivo</label><input type="date" id="'+p+'data" class="prev-input" value="'+oggi+'"></div><div class="prev-section"><label class="prev-label">Luogo</label><input type="text" id="'+p+'luogo" class="prev-input" value="Rovigo"></div><div class="prev-section"><label class="prev-label">Nome file</label><input type="text" id="'+p+'nomefile" class="prev-input" placeholder="es. 2026-05-13_Preventivo_Rossi"></div>';}
-function btnGenera(fn){return'<button onclick="'+fn+'()" class="btn-primary" id="btn-genera-prev" style="margin-top:6px">Genera e salva su Drive</button><div id="prev-status" style="margin-top:10px;font-size:12px;color:#888;text-align:center"></div>';}
-function formConcerto(){return'<div class="card"><h2>Noleggio per Concerto</h2>'+campoFormula('c_')+'<div class="prev-section"><label class="prev-label">Oggetto</label><input type="text" id="c_oggetto" class="prev-input" value="Preventivo di Noleggio Pianoforte per Concerto"></div><div class="prev-section"><label class="prev-label">Marca pianoforte</label><input type="text" id="c_marca" class="prev-input" placeholder="es. Yamaha"></div><div class="prev-section"><label class="prev-label">Modello pianoforte</label><input type="text" id="c_modello" class="prev-input" placeholder="es. C3"></div><div class="prev-section"><label class="prev-label">Tipo coda</label><select id="c_tipo_coda" class="prev-input"><option>Mezza</option><option>Gran</option><option>Quarto di</option><option>Tre quarti di</option></select></div><div class="prev-section"><label class="prev-label">Lunghezza (cm)</label><input type="number" id="c_lunghezza" class="prev-input" placeholder="es. 186"></div><div class="piano-block"><div class="piano-block-title">Evento 1</div><input type="text" id="c_ev1" class="prev-input" placeholder="_ 02.07 Rovigo - Piazza V. Emanuele ore 21.00 EUR 350+IVA"></div><div class="piano-block"><div class="piano-block-title">Evento 2</div><input type="text" id="c_ev2" class="prev-input" placeholder="_ 09.07 Porto Viro ... EUR 390+IVA"></div><div class="piano-block"><div class="piano-block-title">Sezione aggiuntiva (opz.)</div><input type="text" id="c_titolo_agg" class="prev-input" placeholder="es. Eventuali date aggiuntive" style="margin-bottom:6px"><input type="text" id="c_ev3" class="prev-input" placeholder="Evento 3" style="margin-bottom:6px"><input type="text" id="c_ev4" class="prev-input" placeholder="Evento 4"></div><div class="prev-section"><label class="prev-label">Prezzo totale (EUR)</label><input type="number" id="c_prezzo" class="prev-input" placeholder="es. 350"></div>'+campoData('c_')+btnGenera('generaConcerto')+'</div>';}
-function formVendita(){
-  let b='';
-  for(let i=1;i<=4;i++){
-    const chk=i===1?' checked':'';
-    const disp=i===1?'block':'none';
-    b+='<div class="piano-block">'
-    +'<div class="prev-check-row" style="margin-bottom:0"><input type="checkbox" id="v_incluso'+i+'"'+chk+' onchange="toggleVPiano('+i+')"><label style="font-weight:600;color:#A01020">Includi Pianoforte '+i+'</label></div>'
-    +'<div id="v_body'+i+'" style="display:'+disp+';margin-top:10px">'
-    +'<input type="text" id="v_marca'+i+'" class="prev-input" placeholder="Marca" style="margin-bottom:6px">'
-    +'<input type="text" id="v_modello'+i+'" class="prev-input" placeholder="Modello" style="margin-bottom:6px">'
-    +'<input type="text" id="v_anno'+i+'" class="prev-input" placeholder="Anno" style="margin-bottom:6px">'
-    +'<input type="text" id="v_matricola'+i+'" class="prev-input" placeholder="Matricola (opz.)" style="margin-bottom:6px">'
-    +'<textarea id="v_desc'+i+'" class="prev-textarea" placeholder="Descrizione"></textarea>'
-    +'<div class="prev-check-row"><input type="checkbox" id="v_cb_listino'+i+'"><label>Prezzo listino usato</label><input type="number" id="v_listino'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div>'
-    +'<div class="prev-check-row"><input type="checkbox" id="v_cb_scontato'+i+'"><label>Prezzo scontato</label><input type="number" id="v_scontato'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div>'
-    +'<div class="prev-check-row"><input type="checkbox" id="v_cb_riservato'+i+'"><label>Sconto riservato</label><input type="number" id="v_riservato'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div>'
-    +'<div class="prev-check-row"><input type="checkbox" id="v_cb_offerta'+i+'"><label>Offerta riservata</label><input type="number" id="v_offerta'+i+'" style="width:100px;padding:4px 8px;border:0.5px solid #e0e0e0;border-radius:6px;font-size:13px"></div>'
-    +'</div></div>';
+
+/* ---------- form ---------- */
+function pvCostruisciForm(m){
+  var h='<div class="card"><h2>'+pvEsc(m.titolo)+'</h2>';
+  h+='<div class="prev-section"><label class="prev-label">Formula</label><select id="p_formula" class="prev-input"><option>Preg.mo</option><option>Preg.ma</option><option>Spett.le</option><option>Egregio</option><option>Gentile</option><option>Alla c.a. della Direzione</option></select></div>';
+  h+='<div class="prev-section"><label class="prev-label">Destinatario</label><input type="text" id="p_destinatario" class="prev-input" placeholder="Nome cognome / Ente"></div>';
+  h+='<div class="prev-section"><label class="prev-label">Oggetto</label><textarea id="p_oggetto" class="prev-textarea">'+pvEsc(m.oggetto)+'</textarea></div>';
+
+  m.campi.forEach(function(c,idx){ h+=pvCampoHtml(c,idx); });
+
+  h+='<div class="piano-block"><div class="piano-block-title">Testo libero</div>'
+   + '<div style="font-size:11px;color:#888;margin-bottom:6px">Diciture o frasi a piacere. Una riga = un capoverso nel documento.</div>'
+   + '<textarea id="p_note" class="prev-textarea" style="min-height:80px" placeholder="Scrivi qui qualsiasi cosa vada aggiunta a questo preventivo"></textarea></div>';
+
+  h+=pvRigaCasella('p_disp',true,'Chiusura "Rimaniamo a disposizione"')
+   + '<div id="p_disp_box" class="prev-section"><input type="text" id="p_disp_v" class="prev-input" value="'+pvEsc(PV_F.disponibilita)+'"></div>';
+
+  var oggi=new Date().toISOString().split('T')[0];
+  h+='<div class="prev-section"><label class="prev-label">Luogo</label><input type="text" id="p_luogo" class="prev-input" value="Rovigo"></div>';
+  h+='<div class="prev-section"><label class="prev-label">Data preventivo</label><input type="date" id="p_data" class="prev-input" value="'+oggi+'"></div>';
+  h+='<div class="prev-section"><label class="prev-label">Nome file</label><input type="text" id="p_nomefile" class="prev-input" placeholder="es. 2026-08-29_Preventivo_Rossi"></div>';
+  h+='<button onclick="pvGenera()" class="btn-primary" id="btn-genera-prev" style="margin-top:6px">Genera e salva su Drive</button>';
+  h+='<div id="prev-status" style="margin-top:10px;font-size:12px;color:#888;text-align:center"></div>';
+  return h+'</div>';
+}
+
+function pvRigaCasella(id,on,label){
+  return '<div class="prev-check-row" style="margin-top:10px"><input type="checkbox" id="'+id+'"'+(on?' checked':'')+' onchange="pvToggleBox(\''+id+'\')" style="accent-color:#A01020;width:15px;height:15px"><label style="font-weight:600;color:#A01020">'+pvEsc(label)+'</label></div>';
+}
+function pvToggleBox(id){
+  var b=pvEl(id+'_box'); if(b) b.style.display=pvC(id)?'block':'none';
+  var e=pvEl(id+'_elenco'); if(e) e.style.display=pvC(id)?'block':'none';
+}
+
+function pvCampoHtml(c,idx){
+  if(c.t==='testo')  return '<div class="prev-section"><label class="prev-label">'+pvEsc(c.l)+'</label><input type="text" id="f'+idx+'" class="prev-input" placeholder="'+pvEsc(c.ph||'')+'"></div>';
+  if(c.t==='iva')    return '<div class="prev-section"><label class="prev-label">Regime IVA</label><select id="f'+idx+'" class="prev-input"><option>+ IVA</option><option>IVA ESCLUSA</option><option>IVA COMPRESA</option><option>IVA inclusa</option></select></div>';
+
+  if(c.t==='opz'){
+    var h=pvRigaCasella('c'+idx,!!c.on,c.l);
+    h+='<div id="c'+idx+'_box" class="prev-section" style="display:'+(c.on?'block':'none')+'">';
+    h+='<label class="prev-label">'+pvEsc(c.campo||'Testo')+'</label>';
+    h+=(c.def&&c.def.length>70)
+      ? '<textarea id="c'+idx+'_v" class="prev-textarea">'+pvEsc(c.def)+'</textarea>'
+      : '<input type="text" id="c'+idx+'_v" class="prev-input" value="'+pvEsc(c.def||'')+'">';
+    h+='</div>';
+    if(c.elenco) h+='<div id="c'+idx+'_elenco" style="display:'+(c.on?'block':'none')+'">'+pvElencoHtml(c.elenco,'el'+idx)+'</div>';
+    return h;
   }
-  return '<div class="card"><h2>Vendita Pianoforte</h2>'+campoFormula('v_')
-  +'<div class="prev-section"><label class="prev-label">Oggetto</label><input type="text" id="v_oggetto" class="prev-input" placeholder="es. PREVENTIVO ACQUISTO PIANOFORTE"></div>'
-  +b+campoData('v_')+btnGenera('generaVendita')+'</div>';
-}
-function toggleVPiano(i){
-  document.getElementById('v_body'+i).style.display=cP('v_incluso'+i)?'block':'none';
+  if(c.t==='elenco') return pvElencoHtml(c,'el'+idx);
+  if(c.t==='opzioni') return '<div class="piano-block"><div class="piano-block-title">'+pvEsc(c.l)+'</div><div id="op'+idx+'"></div><button type="button" class="btn-tipo-prev" style="margin-top:8px" onclick="pvAggiungiOpzione(\'op'+idx+'\')">+ Aggiungi opzione</button></div>';
+  if(c.t==='strumenti_vendita'||c.t==='strumenti_noleggio'||c.t==='strumenti_catalogo')
+    return '<div class="piano-block"><div class="piano-block-title">'+pvEsc(c.l)+'</div><div id="st'+idx+'"></div><button type="button" class="btn-tipo-prev" style="margin-top:8px" onclick="pvAggiungiStrumento(\'st'+idx+'\',\''+c.t+'\')">+ Aggiungi strumento</button></div>';
+  return '';
 }
 
+function pvElencoHtml(c,dom){
+  var h='<div class="piano-block"><div class="piano-block-title">'+pvEsc(c.l)+'</div>';
+  if(c.preset){
+    h+='<div style="font-size:11px;color:#888;margin-bottom:4px">Voci ricorrenti - clicca per aggiungerle</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
+    c.preset.forEach(function(p){
+      h+='<button type="button" onclick="pvAggiungiRiga(\''+dom+'\','+JSON.stringify(p).replace(/"/g,'&quot;')+')" style="background:#fdeced;border:0.5px solid #e0e0e0;border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer;color:#A01020">+ '+pvEsc(p.length>34?p.slice(0,32)+'…':p)+'</button>';
+    });
+    h+='</div>';
+  }
+  h+='<div id="'+dom+'" data-ph="'+pvEsc(c.ph||'')+'" data-pref="'+pvEsc(c.pref||'')+'"></div>';
+  h+='<button type="button" class="btn-tipo-prev" style="margin-top:8px" onclick="pvAggiungiRiga(\''+dom+'\')">+ Aggiungi riga</button></div>';
+  return h;
+}
 
-function formRiparazione(){let ints='';for(let i=1;i<=6;i++)ints+='<input type="text" id="r_int'+i+'" class="prev-input" placeholder="Intervento '+i+'" style="margin-bottom:6px">';return'<div class="card"><h2>Riparazione / Manutenzione</h2>'+campoFormula('r_')+'<div class="prev-section"><label class="prev-label">Oggetto</label><textarea id="r_oggetto" class="prev-textarea" placeholder="es. REVISIONE e MESSA A PUNTO..."></textarea></div><div class="piano-block"><div class="piano-block-title">Interventi</div>'+ints+'</div><div class="prev-section"><label class="prev-label">Frase extra (opz.)</label><input type="text" id="r_extra" class="prev-input"></div><div class="prev-section"><label class="prev-label">Costo complessivo</label><input type="text" id="r_costo" class="prev-input" placeholder="es. 1750 IVA ESCLUSA"></div><div class="prev-section"><label class="prev-label">Escluso dal preventivo (opz.)</label><input type="text" id="r_escluso" class="prev-input"></div><div class="prev-section"><label class="prev-label">Incluso nel preventivo (opz.)</label><input type="text" id="r_incluso" class="prev-input"></div><div class="prev-section"><label class="prev-label">Consegna entro</label><input type="text" id="r_consegna" class="prev-input" placeholder="es. 31/12/2025"></div>'+campoData('r_')+btnGenera('generaRiparazione')+'</div>';}
-function fmtData(d){if(!d)return'';const dt=new Date(d);return dt.toLocaleDateString('it-IT');}
-async function inviaAppsScript(tipo,nomeFile,seg,pianiEsclusi){
-  const status=document.getElementById('prev-status');
-  const btn=document.getElementById('btn-genera-prev');
-  btn.disabled=true;btn.textContent='Generazione...';
+function pvAggiungiRiga(dom,valore){
+  var box=pvEl(dom); if(!box) return;
+  var d=document.createElement('div');
+  d.style.cssText='display:flex;gap:6px;margin-bottom:6px';
+  d.innerHTML='<input type="text" class="prev-input riga-voce" style="flex:1" placeholder="'+pvEsc(box.getAttribute('data-ph')||'')+'" value="'+pvEsc(valore||'')+'">'
+            + '<button type="button" onclick="this.parentNode.remove()" style="background:#fff;border:0.5px solid #e0e0e0;border-radius:8px;width:34px;cursor:pointer;color:#A32D2D">×</button>';
+  box.appendChild(d);
+}
+
+function pvAggiungiOpzione(dom){
+  var box=pvEl(dom); if(!box) return;
+  var n=box.children.length+1;
+  var d=document.createElement('div');
+  d.className='opz-blocco';
+  d.style.cssText='border:0.5px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:8px';
+  d.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:12px;color:#A01020">OPZIONE '+n+'</b>'
+   + '<button type="button" onclick="this.closest(\'.opz-blocco\').remove()" style="background:#fff;border:0.5px solid #e0e0e0;border-radius:8px;width:30px;cursor:pointer;color:#A32D2D">×</button></div>'
+   + '<input type="text" class="prev-input opz-titolo" style="margin-bottom:6px" placeholder="es. 3 Pianoforti a Coda">'
+   + '<input type="text" class="prev-input opz-desc" style="margin-bottom:6px" value="Costo di Trasporti, Noleggio e Assistenza Tecnica alla Consegna">'
+   + '<input type="text" class="prev-input opz-prezzo" placeholder="es. 1100 + IVA">';
+  box.appendChild(d);
+}
+
+function pvAggiungiStrumento(dom,tipo){
+  var box=pvEl(dom); if(!box) return;
+  var d=document.createElement('div');
+  d.className='str-blocco';
+  d.style.cssText='border:0.5px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:8px';
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:12px;color:#A01020">Strumento '+(box.children.length+1)+'</b>'
+   + '<button type="button" onclick="this.closest(\'.str-blocco\').remove()" style="background:#fff;border:0.5px solid #e0e0e0;border-radius:8px;width:30px;cursor:pointer;color:#A32D2D">×</button></div>';
+  if(tipo==='strumenti_noleggio'){
+    h+='<input type="text" class="prev-input s-desc" style="margin-bottom:6px" placeholder="es. Pianoforte Yamaha Serie U ( Professionale )">'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-annuo" checked><label>Canone annuale €</label><input type="text" class="prev-input s-annuo" style="width:110px" placeholder="500"></div>'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-mensile"><label>Canone mensile €</label><input type="text" class="prev-input s-mensile" style="width:110px" placeholder="45"></div>'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-durata"><label>Durata</label><input type="text" class="prev-input s-durata" style="width:130px" placeholder="Annuale"></div>';
+  } else if(tipo==='strumenti_catalogo'){
+    h+='<input type="text" class="prev-input s-nome" style="margin-bottom:6px" placeholder="es. Pianoforte Yamaha U10A NO SILENT">'
+     + '<textarea class="prev-textarea s-desc" placeholder="Descrizione: una riga per capoverso"></textarea>'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-prezzo" checked><label>Prezzo €</label><input type="text" class="prev-input s-prezzo" style="width:110px" placeholder="3700"></div>'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-disp"><label>Disponibilità</label><input type="text" class="prev-input s-disp" style="width:170px" placeholder="1 modello disponibile"></div>';
+  } else {
+    h+='<input type="text" class="prev-input s-marca" style="margin-bottom:6px" placeholder="Marca">'
+     + '<input type="text" class="prev-input s-modello" style="margin-bottom:6px" placeholder="Modello">'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-anno"><label>Anno</label><input type="text" class="prev-input s-anno" style="width:100px" placeholder="1995"></div>'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-matricola"><label>Matricola</label><input type="text" class="prev-input s-matricola" style="width:130px" placeholder="1234567"></div>'
+     + '<textarea class="prev-textarea s-desc" placeholder="Descrizione: una riga per capoverso"></textarea>'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-listino"><label>Prezzo di listino dell’usato €</label><input type="text" class="prev-input s-listino" style="width:100px"></div>'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-scontato"><label>Prezzo scontato €</label><input type="text" class="prev-input s-scontato" style="width:100px"></div>'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-riservato"><label>Sconto riservato €</label><input type="text" class="prev-input s-riservato" style="width:100px"></div>'
+     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-offerta"><label>Offerta riservata €</label><input type="text" class="prev-input s-offerta" style="width:100px"></div>';
+  }
+  d.innerHTML=h;
+  box.appendChild(d);
+}
+
+/* ---------- raccolta dati ---------- */
+function pvRigheDa(dom){
+  var box=pvEl(dom); if(!box) return [];
+  return Array.prototype.map.call(box.querySelectorAll('.riga-voce'),function(i){return i.value.trim();})
+    .filter(function(v){return v!=='';});
+}
+function pvConPrefisso(arr,pref){ return pref? arr.map(function(v){return v.indexOf(pref)===0?v:pref+v;}) : arr; }
+function pvQ(bl,cls){var e=bl.querySelector(cls);return e?e.value.trim():'';}
+function pvQc(bl,cls){var e=bl.querySelector(cls);return !!(e&&e.checked);}
+
+function pvRaccogliStrumenti(dom,tipo){
+  var box=pvEl(dom); if(!box) return [];
+  var out=[];
+  Array.prototype.forEach.call(box.querySelectorAll('.str-blocco'),function(bl,i){
+    if(i>0) out.push('');
+    if(tipo==='strumenti_noleggio'){
+      var testa=pvQ(bl,'.s-desc');
+      if(pvQc(bl,'.s-cb-durata')&&pvQ(bl,'.s-durata')) testa='Noleggio '+pvQ(bl,'.s-durata')+' '+testa;
+      if(testa) out.push(testa);
+      if(pvQc(bl,'.s-cb-annuo')&&pvQ(bl,'.s-annuo')) out.push('COSTO ANNUALE: € '+pvQ(bl,'.s-annuo'));
+      if(pvQc(bl,'.s-cb-mensile')&&pvQ(bl,'.s-mensile')) out.push('COSTO MENSILE: € '+pvQ(bl,'.s-mensile')+'/mese');
+    } else if(tipo==='strumenti_catalogo'){
+      if(pvQ(bl,'.s-nome')) out.push(pvQ(bl,'.s-nome'));
+      pvQ(bl,'.s-desc').split('\n').forEach(function(r){ if(r.trim()) out.push(r.trim()); });
+      if(pvQc(bl,'.s-cb-prezzo')&&pvQ(bl,'.s-prezzo')) out.push('Prezzo di acquisto € '+pvQ(bl,'.s-prezzo'));
+      if(pvQc(bl,'.s-cb-disp')&&pvQ(bl,'.s-disp')) out.push(pvQ(bl,'.s-disp'));
+    } else {
+      var t=(pvQ(bl,'.s-marca')+' '+pvQ(bl,'.s-modello')).trim();
+      if(pvQc(bl,'.s-cb-anno')&&pvQ(bl,'.s-anno')) t+=' — Anno '+pvQ(bl,'.s-anno');
+      if(pvQc(bl,'.s-cb-matricola')&&pvQ(bl,'.s-matricola')) t+=' — Matricola '+pvQ(bl,'.s-matricola');
+      if(t.trim()) out.push(t.trim());
+      pvQ(bl,'.s-desc').split('\n').forEach(function(r){ if(r.trim()) out.push(r.trim()); });
+      if(pvQc(bl,'.s-cb-listino')&&pvQ(bl,'.s-listino')) out.push('Prezzo di Listino dell’Usato: € '+pvQ(bl,'.s-listino'));
+      if(pvQc(bl,'.s-cb-scontato')&&pvQ(bl,'.s-scontato')) out.push('Prezzo Scontato: € '+pvQ(bl,'.s-scontato'));
+      if(pvQc(bl,'.s-cb-riservato')&&pvQ(bl,'.s-riservato')) out.push('Sconto Riservato: € '+pvQ(bl,'.s-riservato'));
+      if(pvQc(bl,'.s-cb-offerta')&&pvQ(bl,'.s-offerta')) out.push('Offerta Riservata: € '+pvQ(bl,'.s-offerta'));
+    }
+  });
+  return out;
+}
+
+function pvRaccogliOpzioni(dom){
+  var box=pvEl(dom); if(!box) return [];
+  var out=[];
+  Array.prototype.forEach.call(box.querySelectorAll('.opz-blocco'),function(bl,i){
+    if(i>0) out.push('');
+    var tit=pvQ(bl,'.opz-titolo'), desc=pvQ(bl,'.opz-desc'), pr=pvQ(bl,'.opz-prezzo');
+    if(tit) out.push('OPZIONE '+(i+1)+': '+tit);
+    if(desc) out.push(desc);
+    if(pr) out.push('€ '+pr);
+  });
+  return out;
+}
+
+function pvCostruisciPayload(){
+  var m=pvModello;
+  var seg={}, righe={};
+  seg['##FORMULA##']=pvV('p_formula');
+  seg['##DESTINATARIO##']=pvV('p_destinatario');
+  seg['##OGGETTO##']=pvV('p_oggetto');
+  seg['##LUOGO##']=pvV('p_luogo')||'Rovigo';
+  seg['##DATA##']=pvFmtData(pvV('p_data'));
+  seg['##RIGA_DISPONIBILITA##']=pvC('p_disp')?(pvV('p_disp_v')||PV_F.disponibilita):PV_DEL;
+
+  m.campi.forEach(function(c,idx){
+    if(c.t==='testo'||c.t==='iva'){ seg[c.k||'##REGIME_IVA##']=pvV('f'+idx); return; }
+    if(c.t==='opz'){
+      var acceso=pvC('c'+idx), val=pvV('c'+idx+'_v');
+      seg[c.k]=(acceso&&val)?c.testo.replace('{v}',val):PV_DEL;
+      if(c.elenco) righe[c.elenco.k]=acceso?pvConPrefisso(pvRigheDa('el'+idx),c.elenco.pref):[];
+      return;
+    }
+    if(c.t==='elenco'){ righe[c.k]=pvConPrefisso(pvRigheDa('el'+idx),c.pref); return; }
+    if(c.t==='opzioni'){ righe[c.k]=pvRaccogliOpzioni('op'+idx); return; }
+    if(c.t.indexOf('strumenti_')===0){ righe[c.k]=pvRaccogliStrumenti('st'+idx,c.t); return; }
+  });
+
+  righe['##NOTE_LIBERE##']=pvV('p_note').split('\n').map(function(r){return r.trim();}).filter(function(r){return r!=='';});
+
+  var nf=pvV('p_nomefile')||(new Date().toISOString().split('T')[0]+'_Preventivo_'+m.id);
+  return { versione:2, modello:m.id, nome_file:nf, segnaposti:seg, righe:righe };
+}
+
+function pvFmtData(d){ if(!d) return ''; var dt=new Date(d); return dt.toLocaleDateString('it-IT'); }
+
+async function pvGenera(){
+  var payload=pvCostruisciPayload();
+  window.__ultimoPayload=payload;
+  var status=pvEl('prev-status'), btn=pvEl('btn-genera-prev');
+  btn.disabled=true; btn.textContent='Generazione...';
   status.innerHTML='<span class="spinner"></span>Invio in corso...';
   try{
-    const res=await fetch(APPS_SCRIPT_PREVENTIVI,{method:'POST',body:JSON.stringify({tipo,nome_file:nomeFile,segnaposti:seg,pianiEsclusi:pianiEsclusi||[]}),headers:{'Content-Type':'text/plain'},redirect:'follow'});
-    const data=await res.json();
+    var res=await fetch(PV_ENDPOINT,{method:'POST',body:JSON.stringify(payload),headers:{'Content-Type':'text/plain'},redirect:'follow'});
+    var data=await res.json();
     if(data.success){
       status.innerHTML='<span style="color:#A01020;font-weight:500">Salvato!</span><br><a href="'+data.wordUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri Word</a> &nbsp; <a href="'+data.pdfUrl+'" target="_blank" style="font-size:12px;color:#A01020">Apri PDF</a>';
       btn.textContent='Salvato';
-    }else{throw new Error(data.error||'Errore');}
+    } else { throw new Error(data.error||'Errore'); }
   }catch(err){
     status.innerHTML='<span style="color:#A32D2D">Errore: '+err.message+'</span>';
-    btn.disabled=false;btn.textContent='Genera e salva su Drive';
+    btn.disabled=false; btn.textContent='Genera e salva su Drive';
   }
 }
-function generaConcerto(){
-  const nf=vP('c_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Concerto';
-  inviaAppsScript('concerto',nf,{
-    '##FORMULA####DESTINATARIO##':vP('c_formula')+' '+vP('c_destinatario'),
-    '##FORMULA## ##DESTINATARIO##':vP('c_formula')+' '+vP('c_destinatario'),
-    '##OGGETTO##':vP('c_oggetto'),
-    '##MARCA##':vP('c_marca'),
-    '##MODELLO_PIANOFORTE##':vP('c_modello'),
-    '##TIPO_CODA##':vP('c_tipo_coda'),
-    '##LUNGHEZZA_PIANOFORTE##':vP('c_lunghezza'),
-    '##RIGA_EVENTO_1##':vP('c_ev1'),
-    '##RIGA_EVENTO_2##':vP('c_ev2'),
-    '##Titolo_Sezione_Aggiuntiva##':vP('c_titolo_agg'),
-    '##TITOLO_SEZIONE_AGGIUNTIVA##':vP('c_titolo_agg'),
-    '##RIGA_EVENTO_3##':vP('c_ev3'),
-    '##RIGA_EVENTO_4##':vP('c_ev4'),
-    '##PREZZO##':vP('c_prezzo'),
-    '##DATA##':fmtData(vP('c_data')),
-    '##LUOGO##':vP('c_luogo'),
-  });
-}
-function generaVendita(){
-  const nf=vP('v_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Vendita';
-  const DEL='@@CANCELLA_RIGA@@';
-  const esclusi=[];
-  const seg={
-    '##FORMULA## ##DESTINATARIO##':vP('v_formula')+' '+vP('v_destinatario'),
-    '##OGGETTO##':vP('v_oggetto'),
-    '##LUOGO##':vP('v_luogo'),
-    '##DATA##':fmtData(vP('v_data')),
-  };
-  for(let i=1;i<=4;i++){
-    if(!cP('v_incluso'+i)){esclusi.push(i);continue;}
-    seg['##MARCA_'+i+'##']=vP('v_marca'+i);
-    seg['##MODELLO_'+i+'##']=vP('v_modello'+i);
-    seg['##ANNO_'+i+'##']=vP('v_anno'+i);
-    seg['##MATRICOLA_'+i+'##']=vP('v_matricola'+i);
-    seg['##DESCRIZIONE_'+i+'##']=vP('v_desc'+i);
-    if(cP('v_cb_listino'+i)){
-      seg['##RIGA_LISTINO_'+i+'##']='Prezzo di Listino dell\u2019Usato';
-      seg['##PREZZO_LISTINO_USATO_'+i+'##']=parseInt(vP('v_listino'+i)||0).toLocaleString('it-IT');
-    }else{
-      seg['##RIGA_LISTINO_'+i+'##']=DEL;
-      seg['##PREZZO_LISTINO_USATO_'+i+'##']='';
-    }
-    if(cP('v_cb_scontato'+i)){
-      seg['##RIGA_SCONTATO_'+i+'##']='Prezzo Scontato';
-      seg['##PREZZO_SCONTATO_'+i+'##']=parseInt(vP('v_scontato'+i)||0).toLocaleString('it-IT');
-    }else{
-      seg['##RIGA_SCONTATO_'+i+'##']=DEL;
-      seg['##PREZZO_SCONTATO_'+i+'##']='';
-    }
-    if(cP('v_cb_riservato'+i)){
-      seg['##RIGA_SCONTO_'+i+'##']='Sconto Riservato';
-      seg['##SCONTO_'+i+'##']=parseInt(vP('v_riservato'+i)||0).toLocaleString('it-IT');
-    }else{
-      seg['##RIGA_SCONTO_'+i+'##']=DEL;
-      seg['##SCONTO_'+i+'##']='';
-    }
-    if(cP('v_cb_offerta'+i)){
-      seg['##RIGA_OFFERTA_'+i+'##']='Offerta Riservata';
-      seg['##OFFERTA_'+i+'##']=parseInt(vP('v_offerta'+i)||0).toLocaleString('it-IT');
-    }else{
-      seg['##RIGA_OFFERTA_'+i+'##']=DEL;
-      seg['##OFFERTA_'+i+'##']='';
-    }
-  }
-  inviaAppsScript('vendita',nf,seg,esclusi);
-}
-
-function formNoleggioLungo(){
-  return '<div class="card"><h2>Noleggio Lungo Termine</h2>'+campoFormula('nl_')
-  +'<div class="piano-block"><div class="piano-block-title">Pianoforte 1</div>'
-  +'<div class="prev-section"><label class="prev-label">Durata</label><select id="nl_durata1" class="prev-input"><option>Annuale</option><option>Biennale</option><option>Triennale</option><option>Semestrale</option></select></div>'
-  +'<div class="prev-section"><label class="prev-label">Tipo pianoforte</label><select id="nl_tipo1" class="prev-input"><option>Verticale</option><option>A Coda</option><option>Digitale</option></select></div>'
-  +'<div class="prev-section"><label class="prev-label">Marca</label><input type="text" id="nl_marca1" class="prev-input" placeholder="es. Yamaha"></div>'
-  +'<div class="prev-section"><label class="prev-label">Eventuali specifiche (opz.)</label><input type="text" id="nl_spec1" class="prev-input" placeholder="es. con Silent, modello U3"></div>'
-  +'<div class="prev-section"><label class="prev-label">Costo annuale (euro)</label><input type="number" id="nl_annuale1" class="prev-input" placeholder="es. 3660"></div>'
-  +'<div class="prev-section"><label class="prev-label">Costo mensile (euro)</label><input type="number" id="nl_mensile1" class="prev-input" placeholder="es. 305"></div>'
-  +'</div>'
-  +'<div class="piano-block"><div class="piano-block-title">Pianoforte 2 (opz.)</div>'
-  +'<div class="prev-section"><label class="prev-label">Durata</label><select id="nl_durata2" class="prev-input"><option></option><option>Annuale</option><option>Biennale</option><option>Triennale</option><option>Semestrale</option></select></div>'
-  +'<div class="prev-section"><label class="prev-label">Tipo pianoforte</label><select id="nl_tipo2" class="prev-input"><option></option><option>Verticale</option><option>A Coda</option><option>Digitale</option></select></div>'
-  +'<div class="prev-section"><label class="prev-label">Marca</label><input type="text" id="nl_marca2" class="prev-input" placeholder="es. Kawai"></div>'
-  +'<div class="prev-section"><label class="prev-label">Eventuali specifiche (opz.)</label><input type="text" id="nl_spec2" class="prev-input" placeholder="es. con Silent"></div>'
-  +'<div class="prev-section"><label class="prev-label">Costo annuale (euro)</label><input type="number" id="nl_annuale2" class="prev-input" placeholder="es. 2400"></div>'
-  +'<div class="prev-section"><label class="prev-label">Costo mensile (euro)</label><input type="number" id="nl_mensile2" class="prev-input" placeholder="es. 200"></div>'
-  +'</div>'
-  +campoData('nl_')+btnGenera('generaNoleggioLungo')+'</div>';
-}
-function generaNoleggioLungo(){
-  const nf=vP('nl_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Noleggio_Lungo_Termine';
-  inviaAppsScript('noleggio_lungo',nf,{
-    '##FORMULA## ##DESTINATARIO##':vP('nl_formula')+' '+vP('nl_destinatario'),
-    '##DURATA_1##':vP('nl_durata1'),
-    '##TIPO_PIANOFORTE_1##':vP('nl_tipo1'),
-    '##MARCA_1##':vP('nl_marca1'),
-    '##EVENTUALI_SPECIFICHE_1##':vP('nl_spec1'),
-    '##PREZZO_ANNUALE_1##':parseInt(vP('nl_annuale1')||0).toLocaleString('it-IT'),
-    '##PREZZO_MENSILE_1##':parseInt(vP('nl_mensile1')||0).toLocaleString('it-IT'),
-    '##DURATA_2##':vP('nl_durata2'),
-    '##TIPO_PIANOFORTE_2##':vP('nl_tipo2'),
-    '##MARCA_2##':vP('nl_marca2'),
-    '##EVENTUALI_SPECIFICHE_2##':vP('nl_spec2'),
-    '##PREZZO_ANNUALE_2##':parseInt(vP('nl_annuale2')||0).toLocaleString('it-IT'),
-    '##PREZZO_MENSILE_2##':parseInt(vP('nl_mensile2')||0).toLocaleString('it-IT'),
-    '##LUOGO##':vP('nl_luogo'),
-    '##DATA##':fmtData(vP('nl_data')),
-  });
-}
-
-function generaRiparazione(){
-  const nf=vP('r_nomefile')||new Date().toISOString().split('T')[0]+'_Preventivo_Riparazione';
-  const seg={'##FORMULA## ##DESTINATARIO##':vP('r_formula')+' '+vP('r_destinatario'),'##OGGETTO##':vP('r_oggetto'),'##FRASE EXTRA##':vP('r_extra'),'##COSTO_COMPLESSIVO_INTERVENTO##':vP('r_costo'),"##E'_escluso_dal_preventivo##":vP('r_escluso'),"##E'_incluso_nel_preventivo##":vP('r_incluso'),'##LUOGO##':vP('r_luogo'),'##DATA##':fmtData(vP('r_data')),'##Consegna strumenti entro il 31/12/2025.##':vP('r_consegna')?'Consegna strumenti entro il '+vP('r_consegna')+'.':''};
-  for(let i=1;i<=6;i++)seg['##INTERVENTO_'+i+'##']=vP('r_int'+i)?'_ '+vP('r_int'+i):'';
-  inviaAppsScript('riparazione',nf,seg);
-}
-
 </script>
 </body>
 </html>
