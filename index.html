@@ -745,12 +745,10 @@ const PV_F={
 
 const PV_MODELLI=[
 {id:'concerto_date',nome:'🎹 Concerto a date',titolo:'Noleggio per Concerto - a date',oggetto:'Preventivo di Noleggio Pianoforte per Concerto',campi:[
-  {t:'testo',k:'##MARCA##',l:'Marca',ph:'es. Yamaha'},
-  {t:'testo',k:'##MODELLO_PIANOFORTE##',l:'Modello',ph:'es. C3'},
-  {t:'testo',k:'##SPECIFICHE_STRUMENTO##',l:'Specifiche strumento',ph:'es. ( pianoforte mezza coda di 186 cm )'},
-  {t:'elenco',k:'##ELENCO_EVENTI##',l:'Date / eventi',ph:'_ 02.07 Rovigo - Piazza V. Emanuele ore 21.00',pref:'_ '},
+  {t:'testo',k:'##DETTAGLIO_STRUMENTI##',l:'Frase di apertura: cosa si noleggia',ph:'es. di un pianoforte Yamaha C3 ( mezza coda di 186 cm ) di ottima qualità messo a punto per concerti'},
+  {t:'matrice',k:'##ELENCO_EVENTI##',l:'Date e pianoforti'},
   {t:'opz',k:'##TITOLO_SEZIONE_AGGIUNTIVA##',l:'Sezione date aggiuntive',campo:'Titolo sezione',def:'Eventuali date aggiuntive',testo:'{v}',elenco:{k:'##ELENCO_EVENTI_AGGIUNTIVI##',l:'Date aggiuntive',ph:'_ 15.09 Adria - Teatro Comunale ore 21.00',pref:'_ '}},
-  {t:'testo',k:'##PREZZO##',l:'Prezzo totale (EUR)',ph:'es. 350'},
+  {t:'opz',k:'##RIGA_TOTALE##',l:'Costo complessivo',campo:'Importo (calcolato, modificabile)',def:'',testo:'Costo Comprensivo di Trasporti, Noleggio e Assistenza Tecnica alla Consegna € {v} + IVA',on:true,auto:true},
   {t:'opz',k:'##RIGA_ACCORDATURA##',l:'Accordatura in loco',campo:'Testo',def:'Accordatura in loco inclusa nel prezzo.',testo:'{v}'},
   {t:'opz',k:'##RIGA_ASSISTENZA_TECNICA##',l:'Assistenza tecnica durante il concerto',campo:'Testo',def:'Assistenza tecnica presente per tutta la durata del concerto.',testo:'{v}'},
   {t:'opz',k:'##RIGA_TRASPORTO##',l:'Nota sul trasporto',campo:'Testo',def:PV_F.trasportoValutare,testo:'{v}'},
@@ -886,6 +884,7 @@ function pvSeleziona(btn,i){
   pvEl('prev-form').innerHTML=pvCostruisciForm(pvModello);
   pvModello.campi.forEach(function(c,idx){
     if(c.t==='elenco') pvAggiungiRiga('el'+idx);
+    if(c.t==='matrice') pvAggiungiData('mx'+idx);
     if(c.t==='strumenti_vendita'||c.t==='strumenti_noleggio'||c.t==='strumenti_catalogo') pvAggiungiStrumento('st'+idx,c.t);
     if(c.t==='opzioni') pvAggiungiOpzione('op'+idx);
   });
@@ -935,12 +934,16 @@ function pvCampoHtml(c,idx){
     h+='<label class="prev-label">'+pvEsc(c.campo||'Testo')+'</label>';
     h+=(c.def&&c.def.length>70)
       ? '<textarea id="c'+idx+'_v" class="prev-textarea">'+pvEsc(c.def)+'</textarea>'
-      : '<input type="text" id="c'+idx+'_v" class="prev-input" value="'+pvEsc(c.def||'')+'">';
+      : '<input type="text" id="c'+idx+'_v" class="prev-input'+(c.auto?' pv-auto-tot':'')+'" value="'+pvEsc(c.def||'')+'"'+(c.auto?' oninput="this.dataset.manuale=1"':'')+'>';
     h+='</div>';
     if(c.elenco) h+='<div id="c'+idx+'_elenco" style="display:'+(c.on?'block':'none')+'">'+pvElencoHtml(c.elenco,'el'+idx)+'</div>';
     return h;
   }
   if(c.t==='elenco') return pvElencoHtml(c,'el'+idx);
+  if(c.t==='matrice') return '<div class="piano-block"><div class="piano-block-title">'+pvEsc(c.l)+'</div>'
+    + '<div style="font-size:11px;color:#888;margin-bottom:6px">Una o piu\' date. Sotto ogni data, uno o piu\' pianoforti col loro prezzo. Le caselle decidono cosa finisce nel preventivo.</div>'
+    + '<div id="mx'+idx+'"></div>'
+    + '<button type="button" class="btn-tipo-prev" style="margin-top:8px" onclick="pvAggiungiData(\'mx'+idx+'\')">+ Aggiungi data</button></div>';
   if(c.t==='opzioni') return '<div class="piano-block"><div class="piano-block-title">'+pvEsc(c.l)+'</div><div id="op'+idx+'"></div><button type="button" class="btn-tipo-prev" style="margin-top:8px" onclick="pvAggiungiOpzione(\'op'+idx+'\')">+ Aggiungi opzione</button></div>';
   if(c.t==='strumenti_vendita'||c.t==='strumenti_noleggio'||c.t==='strumenti_catalogo')
     return '<div class="piano-block"><div class="piano-block-title">'+pvEsc(c.l)+'</div><div id="st'+idx+'"></div><button type="button" class="btn-tipo-prev" style="margin-top:8px" onclick="pvAggiungiStrumento(\'st'+idx+'\',\''+c.t+'\')">+ Aggiungi strumento</button></div>';
@@ -968,6 +971,93 @@ function pvAggiungiRiga(dom,valore){
   d.innerHTML='<input type="text" class="prev-input riga-voce" style="flex:1" placeholder="'+pvEsc(box.getAttribute('data-ph')||'')+'" value="'+pvEsc(valore||'')+'">'
             + '<button type="button" onclick="this.parentNode.remove()" style="background:#fff;border:0.5px solid #e0e0e0;border-radius:8px;width:34px;cursor:pointer;color:#A32D2D">×</button>';
   box.appendChild(d);
+}
+
+/* ---------- matrice: date x pianoforti ---------- */
+function pvNum(s){
+  if(!s) return 0;
+  var t=String(s).replace(/[^0-9,.-]/g,'');
+  if(t.indexOf(',')>-1){ t=t.replace(/\./g,'').replace(',','.'); }
+  else if((t.match(/\./g)||[]).length>1 || /\.\d{3}$/.test(t)){ t=t.replace(/\./g,''); }
+  var n=parseFloat(t);
+  return isNaN(n)?0:n;
+}
+function pvFmt(n){ return (Math.round(n*100)/100).toLocaleString('it-IT'); }
+
+function pvAggiungiData(dom){
+  var box=pvEl(dom); if(!box) return;
+  var d=document.createElement('div');
+  d.className='mx-data';
+  d.style.cssText='border:0.5px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:10px';
+  d.innerHTML='<div class="prev-check-row" style="margin-bottom:6px"><input type="checkbox" class="mx-on" checked onchange="pvRicalcola()" style="accent-color:#A01020;width:15px;height:15px"><b style="font-size:12px;color:#A01020;flex:1">DATA '+(box.children.length+1)+'</b><button type="button" onclick="var b=this.parentNode.parentNode; b.parentNode.removeChild(b); pvRinumera(); pvRicalcola();" style="background:#fff;border:0.5px solid #e0e0e0;border-radius:8px;width:30px;cursor:pointer;color:#A32D2D">&times;</button></div>'
+   +'<input type="text" class="prev-input mx-desc" style="margin-bottom:8px" placeholder="es. 02.07 Rovigo - Piazza V. Emanuele ore 21.00">'
+   +'<div class="mx-piani"></div>'
+   +'<button type="button" class="btn-tipo-prev" style="margin:6px 0" onclick="pvAggiungiPiano(this.previousElementSibling)">+ Aggiungi pianoforte</button>'
+   +'<div class="prev-check-row"><input type="checkbox" class="mx-cb-tot" onchange="pvRicalcola()" style="accent-color:#A01020"><label>Totale di questa data &euro;</label><input type="text" class="prev-input mx-tot" style="width:110px" oninput="this.dataset.manuale=1"></div>';
+  box.appendChild(d);
+  pvAggiungiPiano(d.querySelector('.mx-piani'));
+  pvRicalcola();
+}
+
+function pvAggiungiPiano(cont){
+  if(!cont) return;
+  var r=document.createElement('div');
+  r.className='mx-piano prev-check-row';
+  r.innerHTML='<input type="checkbox" class="mp-on" checked onchange="pvRicalcola()" style="accent-color:#A01020">'
+   +'<input type="text" class="prev-input mp-modello" style="flex:1" placeholder="es. Yamaha C7">'
+   +'<input type="text" class="prev-input mp-prezzo" style="width:90px" placeholder="900" oninput="pvRicalcola()">'
+   +'<button type="button" onclick="var p=this.parentNode; p.parentNode.removeChild(p); pvRicalcola();" style="background:#fff;border:0.5px solid #e0e0e0;border-radius:8px;width:30px;cursor:pointer;color:#A32D2D">&times;</button>';
+  cont.appendChild(r);
+}
+
+function pvRinumera(){
+  var box=document.querySelector('[id^="mx"]');
+  if(!box) return;
+  Array.prototype.forEach.call(box.querySelectorAll('.mx-data'),function(bl,i){
+    var b=bl.querySelector('b'); if(b) b.textContent='DATA '+(i+1);
+  });
+}
+
+function pvRicalcola(){
+  var box=document.querySelector('[id^="mx"]');
+  if(!box) return;
+  var totale=0;
+  Array.prototype.forEach.call(box.querySelectorAll('.mx-data'),function(bl){
+    var attiva=bl.querySelector('.mx-on').checked;
+    var somma=0;
+    Array.prototype.forEach.call(bl.querySelectorAll('.mx-piano'),function(p){
+      if(p.querySelector('.mp-on').checked) somma+=pvNum(pvQ(p,'.mp-prezzo'));
+    });
+    var campoTot=bl.querySelector('.mx-tot');
+    if(campoTot && !campoTot.dataset.manuale) campoTot.value=somma?pvFmt(somma):'';
+    if(attiva) totale+=somma;
+  });
+  var auto=document.querySelector('.pv-auto-tot');
+  if(auto && !auto.dataset.manuale) auto.value=totale?pvFmt(totale):'';
+}
+
+function pvRaccogliMatrice(dom){
+  var box=pvEl(dom); if(!box) return [];
+  var out=[], primo=true;
+  Array.prototype.forEach.call(box.querySelectorAll('.mx-data'),function(bl){
+    if(!bl.querySelector('.mx-on').checked) return;
+    var desc=pvQ(bl,'.mx-desc');
+    var voci=[];
+    Array.prototype.forEach.call(bl.querySelectorAll('.mx-piano'),function(p){
+      if(!p.querySelector('.mp-on').checked) return;
+      var m=pvQ(p,'.mp-modello'), pr=pvQ(p,'.mp-prezzo');
+      if(!m && !pr) return;
+      voci.push(pr ? (m?m+' — ':'')+'€ '+pr+' + IVA' : m);
+    });
+    if(!desc && voci.length===0) return;
+    if(!primo) out.push('');
+    primo=false;
+    if(desc) out.push(desc.indexOf('_')===0?desc:'_ '+desc);
+    voci.forEach(function(v){ out.push(v); });
+    var cbTot=bl.querySelector('.mx-cb-tot');
+    if(cbTot && cbTot.checked && pvQ(bl,'.mx-tot')) out.push('Totale per questa data € '+pvQ(bl,'.mx-tot')+' + IVA');
+  });
+  return out;
 }
 
 function pvAggiungiOpzione(dom){
@@ -1090,6 +1180,7 @@ function pvCostruisciPayload(){
     }
     if(c.t==='elenco'){ righe[c.k]=pvConPrefisso(pvRigheDa('el'+idx),c.pref); return; }
     if(c.t==='opzioni'){ righe[c.k]=pvRaccogliOpzioni('op'+idx); return; }
+    if(c.t==='matrice'){ righe[c.k]=pvRaccogliMatrice('mx'+idx); return; }
     if(c.t.indexOf('strumenti_')===0){ righe[c.k]=pvRaccogliStrumenti('st'+idx,c.t); return; }
   });
 
