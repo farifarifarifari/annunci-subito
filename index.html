@@ -761,7 +761,7 @@ const PV_MODELLI=[
   {t:'opz',k:'##RIGA_ACCORDATURA##',l:'Accordatura in loco',campo:'Testo',def:'Accordatura in loco inclusa nel prezzo.',testo:'{v}'},
   {t:'opz',k:'##RIGA_ASSISTENZA_TECNICA##',l:'Assistenza tecnica durante il concerto',campo:'Testo',def:'Assistenza tecnica presente per tutta la durata del concerto.',testo:'{v}'},
   {t:'opz',k:'##RIGA_TRASPORTO##',l:'Nota sul trasporto',campo:'Testo',def:PV_F.trasportoValutare,testo:'{v}'},
-  {t:'opz',k:'##RIGA_SCONTO##',l:'Sconto riservato',campo:'Importo / testo',def:'',testo:'Sconto riservato: € {v}'}
+  {t:'opz',k:'##RIGA_SCONTO##',l:'Sconto riservato',campo:'Importo / testo',def:'',testo:'Sconto riservato: € {v}',iva:'nessuna'}
 ]},
 
 {id:'concerto_opzioni',nome:'🎭 Concerto a opzioni',titolo:'Noleggio per Concerto - a opzioni',oggetto:'Preventivo di Spesa per Noleggio Pianoforti',campi:[
@@ -807,7 +807,7 @@ const PV_MODELLI=[
   {t:'opz',k:'##RIGA_SGABELLO##',l:'Sgabello incluso',campo:'Testo',def:PV_F.sgabello,testo:'{v}',on:true},
   {t:'opz',k:'##RIGA_TRASPORTO##',l:'Nota sul trasporto',campo:'Testo',def:PV_F.trasportoValutare,testo:'{v}',on:true},
   {t:'opz',k:'##RIGA_GARANZIA##',l:'Garanzia',campo:'Testo',def:'Strumento coperto da garanzia di 12 mesi.',testo:'{v}'},
-  {t:'opz',k:'##RIGA_PERMUTA##',l:'Permuta',campo:'Testo',def:'',testo:'Valutazione in permuta dello strumento attuale: € {v}'}
+  {t:'opz',k:'##RIGA_PERMUTA##',l:'Permuta',campo:'Testo',def:'',testo:'Valutazione in permuta dello strumento attuale: € {v}',iva:'nessuna'}
 ]},
 
 {id:'catalogo',nome:'📖 Catalogo disponibilità',titolo:'Catalogo Disponibilità',oggetto:'Panoramica generale costi di acquisto',campi:[
@@ -989,7 +989,7 @@ function pvCampoHtml(c,idx){
     h+=(c.def&&c.def.length>70)
       ? '<textarea id="c'+idx+'_v" class="prev-textarea">'+pvEsc(c.def)+'</textarea>'
       : (c.iva
-        ? '<div class="prev-check-row pv-riga-iva" style="margin-bottom:0"><input type="text" id="c'+idx+'_v" class="prev-input" style="width:110px" value="'+pvEsc(c.def||'')+'">'+pvIvaHtml('c'+idx+'_iva',c.iva)+'</div>'
+        ? '<div class="prev-check-row pv-riga-iva" style="margin-bottom:0"><input type="text" id="c'+idx+'_v" class="prev-input" style="flex:1;min-width:110px;width:auto" value="'+pvEsc(c.def||'')+'">'+pvIvaHtml('c'+idx+'_iva',c.iva)+'</div>'
         : '<input type="text" id="c'+idx+'_v" class="prev-input'+(c.auto?' pv-auto-tot':'')+'" value="'+pvEsc(c.def||'')+'"'+(c.auto?' oninput="this.dataset.manuale=1"':'')+'>');
     h+='</div>';
     if(c.elenco) h+='<div id="c'+idx+'_elenco" style="display:'+(c.on?'block':'none')+'">'+pvElencoHtml(c.elenco,'el'+idx)+'</div>';
@@ -1161,7 +1161,7 @@ function pvAggiungiStrumento(dom,tipo){
   } else if(tipo==='strumenti_catalogo'){
     h+='<input type="text" class="prev-input s-nome" style="margin-bottom:6px" placeholder="es. Pianoforte Yamaha U10A NO SILENT">'
      + '<textarea class="prev-textarea s-desc" placeholder="Descrizione: una riga per capoverso"></textarea>'
-     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-prezzo" checked><label>Prezzo €</label><input type="text" class="prev-input s-prezzo" style="width:110px" placeholder="3700"></div>'
+     + '<div class="prev-check-row pv-riga-iva"><input type="checkbox" class="s-cb-prezzo" checked><label>Prezzo €</label><input type="text" class="prev-input s-prezzo" style="width:110px" placeholder="3700">'+pvIvaHtml('s-iva-prezzo')+'</div>'
      + '<div class="prev-check-row"><input type="checkbox" class="s-cb-disp"><label>Disponibilità</label><input type="text" class="prev-input s-disp" style="width:170px" placeholder="1 modello disponibile"></div>';
   } else {
     h+='<input type="text" class="prev-input s-marca" style="margin-bottom:6px" placeholder="Marca">'
@@ -1169,10 +1169,10 @@ function pvAggiungiStrumento(dom,tipo){
      + '<div class="prev-check-row"><input type="checkbox" class="s-cb-anno"><label>Anno</label><input type="text" class="prev-input s-anno" style="width:100px" placeholder="1995"></div>'
      + '<div class="prev-check-row"><input type="checkbox" class="s-cb-matricola"><label>Matricola</label><input type="text" class="prev-input s-matricola" style="width:130px" placeholder="1234567"></div>'
      + '<textarea class="prev-textarea s-desc" placeholder="Descrizione: una riga per capoverso"></textarea>'
-     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-listino"><label>Prezzo di listino dell’usato €</label><input type="text" class="prev-input s-listino" style="width:100px"></div>'
-     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-scontato"><label>Prezzo scontato €</label><input type="text" class="prev-input s-scontato" style="width:100px"></div>'
-     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-riservato"><label>Sconto riservato €</label><input type="text" class="prev-input s-riservato" style="width:100px"></div>'
-     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-offerta"><label>Offerta riservata €</label><input type="text" class="prev-input s-offerta" style="width:100px"></div>';
+     + '<div class="prev-check-row pv-riga-iva"><input type="checkbox" class="s-cb-listino"><label>Prezzo di listino dell’usato €</label><input type="text" class="prev-input s-listino" style="width:100px">'+pvIvaHtml('s-iva-listino')+'</div>'
+     + '<div class="prev-check-row pv-riga-iva"><input type="checkbox" class="s-cb-scontato"><label>Prezzo scontato €</label><input type="text" class="prev-input s-scontato" style="width:100px">'+pvIvaHtml('s-iva-scontato')+'</div>'
+     + '<div class="prev-check-row pv-riga-iva"><input type="checkbox" class="s-cb-riservato"><label>Sconto riservato €</label><input type="text" class="prev-input s-riservato" style="width:100px">'+pvIvaHtml('s-iva-riservato')+'</div>'
+     + '<div class="prev-check-row pv-riga-iva"><input type="checkbox" class="s-cb-offerta"><label>Offerta riservata €</label><input type="text" class="prev-input s-offerta" style="width:100px">'+pvIvaHtml('s-iva-offerta')+'</div>';
   }
   d.innerHTML=h;
   box.appendChild(d);
@@ -1202,7 +1202,7 @@ function pvRaccogliStrumenti(dom,tipo){
     } else if(tipo==='strumenti_catalogo'){
       if(pvQ(bl,'.s-nome')) out.push(pvQ(bl,'.s-nome'));
       pvQ(bl,'.s-desc').split('\n').forEach(function(r){ if(r.trim()) out.push(r.trim()); });
-      if(pvQc(bl,'.s-cb-prezzo')&&pvQ(bl,'.s-prezzo')) out.push('Prezzo di acquisto € '+pvQ(bl,'.s-prezzo'));
+      if(pvQc(bl,'.s-cb-prezzo')&&pvQ(bl,'.s-prezzo')) out.push('Prezzo di acquisto € '+pvQ(bl,'.s-prezzo')+pvIvaTesto(bl,'s-iva-prezzo'));
       if(pvQc(bl,'.s-cb-disp')&&pvQ(bl,'.s-disp')) out.push(pvQ(bl,'.s-disp'));
     } else {
       var t=(pvQ(bl,'.s-marca')+' '+pvQ(bl,'.s-modello')).trim();
@@ -1210,10 +1210,10 @@ function pvRaccogliStrumenti(dom,tipo){
       if(pvQc(bl,'.s-cb-matricola')&&pvQ(bl,'.s-matricola')) t+=' — Matricola '+pvQ(bl,'.s-matricola');
       if(t.trim()) out.push(t.trim());
       pvQ(bl,'.s-desc').split('\n').forEach(function(r){ if(r.trim()) out.push(r.trim()); });
-      if(pvQc(bl,'.s-cb-listino')&&pvQ(bl,'.s-listino')) out.push('Prezzo di Listino dell’Usato: € '+pvQ(bl,'.s-listino'));
-      if(pvQc(bl,'.s-cb-scontato')&&pvQ(bl,'.s-scontato')) out.push('Prezzo Scontato: € '+pvQ(bl,'.s-scontato'));
-      if(pvQc(bl,'.s-cb-riservato')&&pvQ(bl,'.s-riservato')) out.push('Sconto Riservato: € '+pvQ(bl,'.s-riservato'));
-      if(pvQc(bl,'.s-cb-offerta')&&pvQ(bl,'.s-offerta')) out.push('Offerta Riservata: € '+pvQ(bl,'.s-offerta'));
+      if(pvQc(bl,'.s-cb-listino')&&pvQ(bl,'.s-listino')) out.push('Prezzo di Listino dell’Usato: € '+pvQ(bl,'.s-listino')+pvIvaTesto(bl,'s-iva-listino'));
+      if(pvQc(bl,'.s-cb-scontato')&&pvQ(bl,'.s-scontato')) out.push('Prezzo Scontato: € '+pvQ(bl,'.s-scontato')+pvIvaTesto(bl,'s-iva-scontato'));
+      if(pvQc(bl,'.s-cb-riservato')&&pvQ(bl,'.s-riservato')) out.push('Sconto Riservato: € '+pvQ(bl,'.s-riservato')+pvIvaTesto(bl,'s-iva-riservato'));
+      if(pvQc(bl,'.s-cb-offerta')&&pvQ(bl,'.s-offerta')) out.push('Offerta Riservata: € '+pvQ(bl,'.s-offerta')+pvIvaTesto(bl,'s-iva-offerta'));
     }
   });
   return out;
