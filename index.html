@@ -95,6 +95,10 @@ select:focus,input:focus{border-color:#A01020}
 .piano-block-title{font-size:12px;font-weight:600;color:#A01020;margin-bottom:10px}
 .prev-check-row{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
 .prev-check-row input[type=checkbox]{accent-color:#A01020;width:15px;height:15px;flex-shrink:0}
+.pv-riga-iva{flex-wrap:wrap}
+.pv-iva{display:inline-flex;gap:10px;font-size:11px;color:#666;white-space:nowrap}
+.pv-iva label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.prev-check-row .pv-iva input[type=checkbox]{width:13px;height:13px}
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid #ddd;border-top-color:#A01020;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
@@ -779,7 +783,7 @@ const PV_MODELLI=[
   {t:'opz',k:'##RIGA_TRASPORTO##',l:'Nota sul trasporto',campo:'Testo',def:PV_F.trasportoValutare,testo:'{v}'},
   {t:'opz',k:'##RIGA_SCALO_ACQUISTO##',l:'Primo anno scalato in caso di acquisto',campo:'Testo',def:PV_F.scaloAcquisto,testo:'{v}'},
   {t:'opz',k:'##RIGA_CONSEGNA##',l:'Consegna entro',campo:'Data / testo',def:'',testo:'La consegna sarà effettuata entro il {v}.'},
-  {t:'opz',k:'##RIGA_COSTO_CONSEGNA##',l:'Costo della consegna',campo:'Importo',def:'',testo:'Costo della consegna € {v} IVA ESCLUSA'}
+  {t:'opz',k:'##RIGA_COSTO_CONSEGNA##',l:'Costo della consegna',campo:'Importo',def:'',testo:'Costo della consegna € {v}',iva:'esclusa'}
 ]},
 
 {id:'rinnovo_flotta',nome:'🏛️ Rinnovo flotta',titolo:'Rinnovo Noleggio Flotta',oggetto:'PREVENTIVO per RINNOVO NOLEGGIO ANNUALE PIANOFORTI',campi:[
@@ -984,7 +988,9 @@ function pvCampoHtml(c,idx){
     h+='<label class="prev-label">'+pvEsc(c.campo||'Testo')+'</label>';
     h+=(c.def&&c.def.length>70)
       ? '<textarea id="c'+idx+'_v" class="prev-textarea">'+pvEsc(c.def)+'</textarea>'
-      : '<input type="text" id="c'+idx+'_v" class="prev-input'+(c.auto?' pv-auto-tot':'')+'" value="'+pvEsc(c.def||'')+'"'+(c.auto?' oninput="this.dataset.manuale=1"':'')+'>';
+      : (c.iva
+        ? '<div class="prev-check-row pv-riga-iva" style="margin-bottom:0"><input type="text" id="c'+idx+'_v" class="prev-input" style="width:110px" value="'+pvEsc(c.def||'')+'">'+pvIvaHtml('c'+idx+'_iva',c.iva)+'</div>'
+        : '<input type="text" id="c'+idx+'_v" class="prev-input'+(c.auto?' pv-auto-tot':'')+'" value="'+pvEsc(c.def||'')+'"'+(c.auto?' oninput="this.dataset.manuale=1"':'')+'>');
     h+='</div>';
     if(c.elenco) h+='<div id="c'+idx+'_elenco" style="display:'+(c.on?'block':'none')+'">'+pvElencoHtml(c.elenco,'el'+idx)+'</div>';
     return h;
@@ -1124,6 +1130,22 @@ function pvAggiungiOpzione(dom){
   box.appendChild(d);
 }
 
+/* Le due caselline accanto a un prezzo: "IVA inclusa" / "IVA esclusa". Se ne puo' spuntare
+   una sola, oppure nessuna (e allora nel preventivo dopo il prezzo non si scrive niente). */
+function pvIvaHtml(cls,scelta){
+  return '<span class="pv-iva">'+['inclusa','esclusa'].map(function(v){
+    return '<label><input type="checkbox" class="'+cls+'" value="'+v+'"'+(scelta===v?' checked':'')+' onchange="pvIvaUna(this)">IVA '+v+'</label>';
+  }).join('')+'</span>';
+}
+function pvIvaUna(cb){
+  if(!cb.checked) return;
+  Array.prototype.forEach.call(cb.closest('.pv-iva').querySelectorAll('input[type=checkbox]'),function(x){ if(x!==cb) x.checked=false; });
+}
+function pvIvaTesto(bl,cls){
+  var e=(bl||document).querySelector('.'+cls+':checked');
+  return e?' IVA '+e.value:'';
+}
+
 function pvAggiungiStrumento(dom,tipo){
   var box=pvEl(dom); if(!box) return;
   var d=document.createElement('div');
@@ -1133,8 +1155,8 @@ function pvAggiungiStrumento(dom,tipo){
    + '<button type="button" onclick="this.closest(\'.str-blocco\').remove()" style="background:#fff;border:0.5px solid #e0e0e0;border-radius:8px;width:30px;cursor:pointer;color:#A32D2D">×</button></div>';
   if(tipo==='strumenti_noleggio'){
     h+='<input type="text" class="prev-input s-desc" style="margin-bottom:6px" placeholder="es. Pianoforte Yamaha Serie U ( Professionale )">'
-     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-annuo" checked><label>Canone annuale €</label><input type="text" class="prev-input s-annuo" style="width:110px" placeholder="500"></div>'
-     + '<div class="prev-check-row"><input type="checkbox" class="s-cb-mensile"><label>Canone mensile €</label><input type="text" class="prev-input s-mensile" style="width:110px" placeholder="45"></div>'
+     + '<div class="prev-check-row pv-riga-iva"><input type="checkbox" class="s-cb-annuo" checked><label>Canone annuale €</label><input type="text" class="prev-input s-annuo" style="width:110px" placeholder="500">'+pvIvaHtml('s-iva-annuo')+'</div>'
+     + '<div class="prev-check-row pv-riga-iva"><input type="checkbox" class="s-cb-mensile"><label>Canone mensile €</label><input type="text" class="prev-input s-mensile" style="width:110px" placeholder="45">'+pvIvaHtml('s-iva-mensile')+'</div>'
      + '<div class="prev-check-row"><input type="checkbox" class="s-cb-durata"><label>Durata</label><input type="text" class="prev-input s-durata" style="width:130px" placeholder="Annuale"></div>';
   } else if(tipo==='strumenti_catalogo'){
     h+='<input type="text" class="prev-input s-nome" style="margin-bottom:6px" placeholder="es. Pianoforte Yamaha U10A NO SILENT">'
@@ -1175,8 +1197,8 @@ function pvRaccogliStrumenti(dom,tipo){
       var testa=pvQ(bl,'.s-desc');
       if(pvQc(bl,'.s-cb-durata')&&pvQ(bl,'.s-durata')) testa='Noleggio '+pvQ(bl,'.s-durata')+' '+testa;
       if(testa) out.push(testa);
-      if(pvQc(bl,'.s-cb-annuo')&&pvQ(bl,'.s-annuo')) out.push('COSTO ANNUALE: € '+pvQ(bl,'.s-annuo'));
-      if(pvQc(bl,'.s-cb-mensile')&&pvQ(bl,'.s-mensile')) out.push('COSTO MENSILE: € '+pvQ(bl,'.s-mensile')+'/mese');
+      if(pvQc(bl,'.s-cb-annuo')&&pvQ(bl,'.s-annuo')) out.push('COSTO ANNUALE: € '+pvQ(bl,'.s-annuo')+pvIvaTesto(bl,'s-iva-annuo'));
+      if(pvQc(bl,'.s-cb-mensile')&&pvQ(bl,'.s-mensile')) out.push('COSTO MENSILE: € '+pvQ(bl,'.s-mensile')+'/mese'+pvIvaTesto(bl,'s-iva-mensile'));
     } else if(tipo==='strumenti_catalogo'){
       if(pvQ(bl,'.s-nome')) out.push(pvQ(bl,'.s-nome'));
       pvQ(bl,'.s-desc').split('\n').forEach(function(r){ if(r.trim()) out.push(r.trim()); });
@@ -1232,7 +1254,7 @@ function pvCostruisciPayload(){
     if(c.t==='testo'||c.t==='iva'){ seg[c.k||'##REGIME_IVA##']=pvV('f'+idx); return; }
     if(c.t==='opz'){
       var acceso=pvC('c'+idx), val=pvV('c'+idx+'_v');
-      seg[c.k]=(acceso&&val)?c.testo.replace('{v}',val):PV_DEL;
+      seg[c.k]=(acceso&&val)?c.testo.replace('{v}',val)+(c.iva?pvIvaTesto(null,'c'+idx+'_iva'):''):PV_DEL;
       if(c.elenco) righe[c.elenco.k]=acceso?pvConPrefisso(pvRigheDa('el'+idx),c.elenco.pref):[];
       return;
     }
